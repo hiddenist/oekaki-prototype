@@ -115,6 +115,15 @@ function Oekaki(setupOptions) {
 		elems.page.addEventListener("mousemove", events.move);
 		elems.page.addEventListener("mouseup", events.stopDrawing);
 		elems.page.addEventListener("mouseout", events.stopDrawing);
+
+		// touch controls
+		elems.page.addEventListener("touchstart", events.startDrawing);
+		elems.page.addEventListener("touchmove", events.move);
+		elems.page.addEventListener("touchend", events.stopDrawing);
+		elems.page.addEventListener("touchleave", events.stopDrawing);
+		elems.page.addEventListener("touchcancel", events.stopDrawing);
+		elems.page.addEventListener("touchleave", events.stopDrawing);
+		
 		window.addEventListener('beforeunload', function (e) {
 			if (flags.unsaved) {
 				e.preventDefault();
