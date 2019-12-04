@@ -194,12 +194,14 @@ function Oekaki(setupOptions) {
 	}
 
 	events.startDrawing = function(e) {
+		e.preventDefault();
 		log("Start drawing");
 		updatePosition(e);
 		flags.drawing = true;
 	}
 
 	events.move = function(e) {
+		e.preventDefault();
 		if (flags.drawing) {
 			updatePosition(e);
 			draw(lastPos, pos);
@@ -207,6 +209,7 @@ function Oekaki(setupOptions) {
 	}
 
 	events.stopDrawing = function(e) {
+		e.preventDefault();
 		log("Stop drawing");
 		flags.drawing = false;
 	}
