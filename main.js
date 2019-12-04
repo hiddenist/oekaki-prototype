@@ -23,10 +23,46 @@ function Oekaki(setupOptions) {
 		zoom = 1,
 		flags = {
 			drawing: false,
-			initialized: false
+			initialized: false,
+			unsaved: false
 		},
-		events = {};
-
+		events = {},
+		buttons = {
+			clear: {
+				action: function(e) {
+					if (confirm("Are you sure you want to clear the canvas?")) {
+						var layer = getCurrentLayer();
+						layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+					}
+				},
+				label: "Clear",
+				active: true
+			},
+			save: {
+				action: function(e) {
+					download("image.png");
+					flags.unsaved = false;
+				},
+				label: "Save",
+				active: true
+			},
+			setColor: {
+				action: function(e) {
+					brush.color = prompt("Enter color (any valid HTML color code)", brush.color);
+					updateBrush();
+				},
+				label: "Set Color",
+				active: true
+			},
+			setSize: {
+				action: function(e) {
+					brush.size = prompt("Enter brush size (in pixels)", brush.size);
+					updateBrush();
+				},
+				label: "Brush Size",
+				active: true
+			}
+		};
 
 	obj.setOptions = function(newOptions) {
 		options = mergeDefaults(options, { ...newOptions });
@@ -59,15 +95,11 @@ function Oekaki(setupOptions) {
 		elems.buttons = document.createElement('div');
 		elems.buttons.className = "oekaki-buttons";
 		elems.container.appendChild(elems.buttons);
-		
-		var buttons = {
-			clear: {
-				action: clear,
-				label: "Clear"
-			}
-		};
 
 		for (var btnName in buttons) {
+			if (!buttons[btnName].active) {
+				continue;
+			}
 			var btn = document.createElement('div');
 			btn.className = "oekaki-button oekaki-button-" + btnName;
 			btn.innerHTML = buttons[btnName].label;
@@ -83,6 +115,12 @@ function Oekaki(setupOptions) {
 		elems.page.addEventListener("mousemove", events.move);
 		elems.page.addEventListener("mouseup", events.stopDrawing);
 		elems.page.addEventListener("mouseout", events.stopDrawing);
+		window.addEventListener('beforeunload', function (e) {
+			if (flags.unsaved) {
+				e.preventDefault();
+				e.returnValue = '';
+			}
+		});
 	};
 
 	function log(message) {
@@ -99,10 +137,14 @@ function Oekaki(setupOptions) {
 		if (name in layers) {
 			log("Setting active layer: " + name);
 			currentLayer = name;
-			var ctx = layers[currentLayer].ctx;
-			ctx.strokeStyle = brush.color;
-			ctx.lineWidth = brush.size;
+			updateBrush();
 		}
+	}
+
+	function updateBrush() {
+		var ctx = getCurrentLayer().ctx;
+		ctx.strokeStyle = brush.color;
+		ctx.lineWidth = brush.size;
 	}
 
 	function addLayer(name) {
@@ -160,18 +202,27 @@ function Oekaki(setupOptions) {
 		flags.drawing = false;
 	}
 
-	function draw(from, to) {
-		var ctx = layers[currentLayer].ctx;
-		ctx.beginPath();
-		ctx.moveTo(from.x, from.y);
-		ctx.lineTo(to.x, to.y);
-		ctx.stroke();
-		ctx.closePath();
+	function getCurrentLayer() {
+		return layers[currentLayer];
 	}
 
-	function clear() {
-		var layer = layers[currentLayer];
-		layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+	function draw(from, to) {
+		var layer = getCurrentLayer();
+		layer.ctx.beginPath();
+		layer.ctx.moveTo(from.x, from.y);
+		layer.ctx.lineTo(to.x, to.y);
+		layer.ctx.stroke();
+		layer.ctx.closePath();
+		flags.unsaved = true;
+	}
+
+	function download(filename) {
+		var layer = getCurrentLayer();
+		// future: when there are multiple layers, combine them before saving
+		var a = document.createElement('a');
+		a.href = layer.canvas.toDataURL();
+		a.setAttribute('download', filename);
+		a.click();
 	}
 
 	obj.setOptions(setupOptions);

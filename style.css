@@ -2,28 +2,28 @@ body {
 	font-family: sans-serif;
 	margin: 0;
 	padding: 0;
+	background-color: rgb(104, 144, 231);
 }
 
 .oekaki-container {
 	position: relative;
-	width: 100%;
+	width: 100vw;
 	padding-top: 100px;
 }
 
 .oekaki-page {
 	margin: 0 auto;
-	border: 1px solid #bbb;
-	box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='25' height='25' viewBox='0 0 8 8'%3E%3Cg fill='%239C92AC' fill-opacity='0.4'%3E%3Cpath fill-rule='evenodd' d='M0 0h4v4H0V0zm4 4h4v4H4V4z'/%3E%3C/g%3E%3C/svg%3E");
+	border: 1px solid rgba(0, 0, 0, 0.5);
+	box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='25' height='25' viewBox='0 0 8 8'%3E%3Cg fill='%23acacac' fill-opacity='0.3'%3E%3Cpath fill-rule='evenodd' d='M0 0h4v4H0V0zm4 4h4v4H4V4z'/%3E%3C/g%3E%3C/svg%3E");
 	position: relative;
+	background-color: white;
 }
 
 .oekaki-buttons {
-	border: 1px solid #bbb;
-	border-width: 1px 0;
-	background-color: #eee;
+	background-color: rgb(31, 80, 185);
 	padding: 10px;
-	margin-top: 10px;
+	box-sizing: border-box;
 	position: absolute;
 	top: 0;
 	left: 0;
@@ -32,9 +32,44 @@ body {
 
 .oekaki-buttons .oekaki-button {
 	border: 1px solid #aaa;
-	background-color: #ccc;
-	border-radius: 3px;
+	border-left: 0;
+	background-color: #fff;
 	display: inline-block;
 	padding: 5px;
 	font-size: 14px;
+	cursor: pointer;
+}
+
+.oekaki-buttons .oekaki-button:hover {
+	background-color: #f5f5f5;
+	box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3) inset;
+}
+
+.oekaki-buttons .oekaki-button:last-child {
+	border-radius: 0 3px 3px 0;
+}
+
+.oekaki-buttons .oekaki-button:first-child {
+	border-radius: 3px 0 0 3px;
+	border-left: 1px;
+}
+
+.oekaki-buttons .oekaki-button:first-child:last-child {
+	border-radius: 3px;
+}
+
+.oekaki-buttons .oekaki-button-save {
+	float: right;
+	background-color: rgb(220, 78, 255);
+	color: white;
+	border: 1px solid rgba(0, 0, 0, 0.5);
+	border-radius: 3px;
+}
+.oekaki-buttons .oekaki-button-save:hover {
+	float: right;
+	background-color: rgb(194, 52, 230);
+	color: white;
+	border: 1px solid rgba(0, 0, 0, 0.5);
+	border-radius: 3px;
+	text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);
 }
