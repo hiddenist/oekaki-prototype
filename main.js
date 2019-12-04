@@ -107,8 +107,8 @@ function Oekaki(setupOptions) {
 			elems.buttons.appendChild(btn);
 		}
 
-		// future: loop this and allow several layers
-		addLayer('background');
+		// future: Allow several layers
+		addLayer('Background');
 
 		// Set up listeners
 		elems.page.addEventListener("mousedown", events.startDrawing);
@@ -189,8 +189,20 @@ function Oekaki(setupOptions) {
 	function updatePosition(e) {
 		lastPos.x = pos.x;
 		lastPos.y = pos.y;
-		pos.x = e.layerX * 1/zoom;
-		pos.y = e.layerY * 1/zoom;
+
+		var x, y;
+		if (e.type == 'touchstart' || e.type == 'touchmove' || e.type == 'touchend' || e.type == 'touchcancel') {
+			var touch = e.touches[0] || e.changedTouches[0];
+			var rect = touch.target.getBoundingClientRect();
+			x = touch.clientX - rect.x;
+			y = touch.clientY - rect.y;
+		} else if (e.type == 'mousedown' || e.type == 'mouseup' || e.type == 'mousemove' || e.type == 'mouseover'|| e.type=='mouseout' || e.type=='mouseenter' || e.type=='mouseleave') {
+			x = e.layerX;
+			y = e.layerY;
+		}
+
+		pos.x = x * 1/zoom;
+		pos.y = y * 1/zoom;
 	}
 
 	events.startDrawing = function(e) {
