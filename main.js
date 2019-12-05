@@ -43,8 +43,8 @@ function Oekaki(setupOptions) {
 			},
 			save: {
 				action: function(e) {
-					download("image.png");
-					flags.unsaved = false;
+					download(options.name + ".png");
+					setSaved();
 				},
 				label: "Save",
 				active: true
@@ -220,6 +220,10 @@ function Oekaki(setupOptions) {
 		elems.page.style.width = options.width + "px";
 		elems.page.style.height = options.height + "px";
 
+		document.originalTitle = document.title;
+		document.title = '"' + options.name + '" - ' + document.title;
+		document.cleanTitle = document.title;
+
 		elems.buttons = document.createElement('div');
 		elems.buttons.className = "oekaki-buttons";
 		elems.container.appendChild(elems.buttons);
@@ -251,7 +255,6 @@ function Oekaki(setupOptions) {
 		elems.page.addEventListener("touchend", events.stopDrawing);
 		elems.page.addEventListener("touchleave", events.stopDrawing);
 		elems.page.addEventListener("touchcancel", events.stopDrawing);
-		elems.page.addEventListener("touchleave", events.stopDrawing);
 		
 		window.addEventListener('beforeunload', function (e) {
 			if (flags.unsaved) {
@@ -378,7 +381,21 @@ function Oekaki(setupOptions) {
 		layer.ctx.lineTo(to.x, to.y);
 		layer.ctx.stroke();
 		layer.ctx.closePath();
-		flags.unsaved = true;
+		setUnsaved();
+	}
+
+	function setUnsaved() {
+		if (!flags.unsaved) {
+			document.title = '* ' + document.cleanTitle;
+			flags.unsaved = true;
+		}
+	}
+
+	function setSaved() {
+		if (flags.unsaved) {
+			document.title = document.cleanTitle;
+			flags.unsaved = false;
+		}
 	}
 	
 	function clear() {
