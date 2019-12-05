@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<title>Document</title>
+	<style>
+		#colorPicker {
+			float: left;
+			margin-right: 10px;
+		}
+
+		.colorbox {
+			background-color: #fff;
+			width: 75px;
+			display: block;
+			box-sizing: border-box;
+		}
+
+		#colorPreview {
+			height: 95px;
+		}
+		
+		#selectedColor {
+			height: 75px;
+		}
+
+		#color {
+			margin-bottom: 10px;
+			width: 75px;
+			height: 20px;
+			line-height: 20px;
+			padding: 0 3px;
+			text-align: center;
+			box-sizing: border-box;
+		}
+
+		#huePicker {
+			margin-top: 10px;
+		}
+	</style>
+</head>
+<body>
+	<canvas id="colorPicker" width="200" height="200"></canvas>
+	<div style="overflow: hidden">
+		<input id="color" value="#FFFFFF">
+		<div id="selectedColor" class="colorbox"></div>
+		<div id="colorPreview" class="colorbox"></div>
+	</div>
+	<canvas id="huePicker" width="285" height="20"></canvas>
+	<script>
+		var colorCanvas = document.getElementById('colorPicker');
+		var hueCanvas = document.getElementById('huePicker');
+		var colorCtx = colorCanvas.getContext('2d');
+		var hueCtx = hueCanvas.getContext('2d');
+
+		function drawColorCanvas(hue) {
+			console.log(hue);
+			var grads = {
+				x: hue,
+				y: '#000000',
+			};
+
+			colorCtx.fillStyle = '#ffffff';
+			colorCtx.fillRect(0, 0, colorCanvas.width, colorCanvas.height);
+
+			for (var i in grads) {
+				var grad = colorCtx.createLinearGradient(0, 0, i == 'x'? colorCanvas.width : 0, i == 'y'? colorCanvas.height : 0);
+				grad.addColorStop(0, 'transparent');
+				grad.addColorStop(1, grads[i]);
+
+				colorCtx.fillStyle = grad;
+				colorCtx.fillRect(0, 0, colorCanvas.width, colorCanvas.height);
+			}
+		}
+
+		drawColorCanvas('red');
+
+		colorCanvas.addEventListener('mousemove', function(e) {
+			var coords = getEventCoords(e);
+			var data = colorCtx.getImageData(coords.x, coords.y, 1, 1).data;
+			var rgba = new Color(data[0], data[1], data[2]);
+			document.getElementById('colorPreview').style.backgroundColor = rgba.toString();
+		});
+
+		colorCanvas.addEventListener('mouseleave', function(e) {
+			document.getElementById('colorPreview').style.backgroundColor = document.getElementById('color').value;
+		});
+
+		colorCanvas.addEventListener('click', function(e) {
+			var coords = getEventCoords(e);
+			var data = colorCtx.getImageData(coords.x, coords.y, 1, 1).data;
+			var rgba = new Color(data[0], data[1], data[2]);
+			document.getElementById('color').value = rgba.toHex();
+			document.getElementById('selectedColor').style.backgroundColor = rgba.toString();
+		});
+
+		var hues = [
+			"#ff0000",
+			"#ffff00",
+			"#00ff00",
+			"#00ffff",
+			"#0000ff",
+			"#ff00ff"
+		];
+
+		var hueGrad = colorCtx.createLinearGradient(0, 0, hueCanvas.width, 0);
+		for (var i in hues) {
+			var start = i / (hues.length - 1);
+			hueGrad.addColorStop(start, hues[i]);
+		}
+		hueCtx.fillStyle = hueGrad;
+		hueCtx.fillRect(0, 0, hueCanvas.width, hueCanvas.height);
+
+		hueCanvas.addEventListener('click', function(e) {
+			var coords = getEventCoords(e);
+			var data = hueCtx.getImageData(coords.x, coords.y, 1, 1).data;
+			var rgba = new Color(data[0], data[1], data[2]);
+			drawColorCanvas(rgba.toHex());
+		});
+
+		document.getElementById("color").addEventListener('change', function() {
+			var hex = document.getElementById("color").value;
+			var color = colorFromHex(hex);
+			document.getElementById('selectedColor').style.backgroundColor = hex;
+			drawColorCanvas(color.getHue().toHex());
+		});
+
+		function Color(r, g, b, a) {
+			var that = this;
+			that.r = r;
+			that.g = g;
+			that.b = b;
+			that.a = a || 1;
+
+			that.toString = function() {
+				return "rgba(" + that.r + ", " + that.g + ", " + that.b + ", " + that.a + ")";
+			}
+
+			that.toHex = function() {
+				return "#" + ("000000" + ((that.r << 16) | (that.g << 8) | that.b).toString(16)).slice(-6).toUpperCase();
+			}
+
+			that.getHue = function() {
+				var hue = [
+					that.r,
+					that.g,
+					that.b
+				];
+
+				var max = Math.max(...hue);
+				var min = Math.min(...hue);
+				var range = max - min;
+
+				if (range == 0) {
+					return new Color(255, 0, 0);
+				}
+				
+				for (var i in hue) {
+					if (hue[i] == max) {
+						hue[i] = 255;
+					} else if (hue[i] == min) {
+						hue[i] = 0;
+					} else {
+						hue[i] = (hue[i] - min) / range * 255;
+					}
+				}
+
+				return new Color(...hue);
+			}
+
+			return that;
+		}
+
+		function colorFromHex(hex) {
+			var m = hex.match(/^#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})$/);
+
+			if (!m) {
+				throw hex + " is not a valid hexadecimal value";
+			}
+
+			var r = parseInt(m[1], 16);
+			var g = parseInt(m[2], 16);
+			var b = parseInt(m[3], 16);
+			return new Color(r, g, b);
+		}
+
+		function getEventCoords(e) {
+			return {
+				x: e.offsetX || e.layerX,
+				y: e.offsetY || e.layerY
+			};
+		}
+	</script>
+</body>
+</html>
