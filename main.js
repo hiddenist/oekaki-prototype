@@ -3,8 +3,11 @@ function Oekaki(setupOptions) {
 		defaultOptions = {
 			width: 500,
 			height: 500,
+			createForm: false,
 			autoInit: true,
-			debug: false
+			debug: false,
+			name: "Untitled Drawing",
+			backgroundColor: null
 		},
 		options = { ...defaultOptions },
 		pos = { x: 0, y: 0 },
@@ -18,7 +21,8 @@ function Oekaki(setupOptions) {
 		currentLayer,
 		brush = {
 			color: "#000000",
-			size: 1
+			size: 2,
+			opacity: 0.75
 		},
 		zoom = 1,
 		flags = {
@@ -31,8 +35,7 @@ function Oekaki(setupOptions) {
 			clear: {
 				action: function(e) {
 					if (confirm("Are you sure you want to clear the canvas?")) {
-						var layer = getCurrentLayer();
-						layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+						clear();
 					}
 				},
 				label: "Clear",
@@ -61,7 +64,15 @@ function Oekaki(setupOptions) {
 				},
 				label: "Brush Size",
 				active: true
-			}
+			},
+			setOpacity: {
+				action: function(e) {
+					brush.opacity = prompt("Enter opacity ", brush.opacity);
+					updateBrush();
+				},
+				label: "Set Opacity",
+				active: true
+			},
 		};
 
 	obj.setOptions = function(newOptions) {
@@ -69,8 +80,8 @@ function Oekaki(setupOptions) {
 
 		log(options);
 
-		if (!options.hasOwnProperty('id') || !options.id) {
-			throw "No \"id\" property was set in options";
+		if ((!options.hasOwnProperty('id') || !options.id) && (!options.hasOwnProperty('element') || !options.element)) {
+			throw "No \"id\" or \"element\" property was set in options";
 		}
 	}
 
@@ -82,10 +93,127 @@ function Oekaki(setupOptions) {
 
 		flags.initialized = true;
 
-		// Create canvas
-		elems.container = document.getElementById(options.id);
+		elems.container = options.element || document.getElementById(options.id);
 		elems.container.className = "oekaki-container";
 
+		if (options.createForm) {
+			createForm();
+		} else {
+			launch();
+		}
+	};
+
+	function createForm() {
+		log("Building new document form");
+		elems.form = document.createElement('form');
+		elems.form.className = 'oekaki-create-form oekaki-form';
+		elems.container.appendChild(elems.form);
+
+		var inputs = {
+			"name": {
+				label: "Drawing Name",
+				type: "text",
+				default: options.name
+			},
+			"width": {
+				label: "Width (px)",
+				type: "number",
+				default: options.width,
+				attributes: {
+					"step": 1,
+					"min": 10,
+					"max": 1000
+				}
+			},
+			"height": {
+				label: "Height (px)",
+				type: "number",
+				default: options.height,
+				attributes: {
+					"step": 1,
+					"min": 10,
+					"max": 1000
+				}
+			},
+			"background": {
+				label: "Background Color",
+				type: "select",
+				default: "transparent",
+				options: {
+					"transparent": "Transparent",
+					"white": "White",
+					"black": "Black"
+				}
+			}
+		};
+
+		for (var name in inputs) {
+			var inputSettings = inputs[name];
+			var label = document.createElement("label");
+			label.innerHTML = inputSettings.label;
+			label.className = 'oekaki-create-input-' + name;
+
+			var input;
+			switch (inputSettings.type) {
+				case 'textarea':
+					input = document.createElement("textarea");
+					break;
+				case 'select':
+					input = document.createElement("select");
+					for (var opt in inputSettings.options) {
+						var option = document.createElement("option");
+						option.value = opt;
+						option.innerHTML = inputSettings.options[opt];
+						input.appendChild(option);
+					}
+					break;
+				default:
+					input = document.createElement("input");
+					input.setAttribute("type", inputSettings.type);
+					break;
+			}
+
+			input.setAttribute("name", name);
+
+			if ('attributes' in inputSettings) {
+				for (var attr in inputSettings.attributes) {
+					input.setAttribute(attr, inputSettings.attributes[attr]);
+				}
+			}
+
+			input.value = inputSettings.default;
+
+			label.appendChild(input);
+			elems.form.appendChild(label);
+		}
+
+		var btn = document.createElement('button');
+		btn.innerHTML = "Start Drawing!";
+		elems.form.appendChild(btn);
+
+		elems.form.addEventListener("submit", function(e) {
+			log("Received form submission");
+			e.preventDefault();
+
+			options.width = elems.form.width.value;
+			options.height = elems.form.height.value;
+			options.name = elems.form.name.value;
+			options.backgroundColor = elems.form.background.value;
+
+			if (options.backgroundColor == "black") {
+				brush.color = "white";
+			}
+
+			elems.form.parentNode.removeChild(elems.form);
+			elems.form = null;
+
+			launch();
+		});
+	}
+
+	function launch() {
+		log("Launching");
+		log(options);
 		elems.page = document.createElement('div');
 		elems.container.appendChild(elems.page);
 		elems.page.className = "oekaki-page";
@@ -108,7 +236,8 @@ function Oekaki(setupOptions) {
 		}
 
 		// future: Allow several layers
-		addLayer('Background');
+		var bg = addLayer('Background', true);
+		clear();
 
 		// Set up listeners
 		elems.page.addEventListener("mousedown", events.startDrawing);
@@ -130,7 +259,7 @@ function Oekaki(setupOptions) {
 				e.returnValue = '';
 			}
 		});
-	};
+	}
 
 	function log(message) {
 		if (options.debug) {
@@ -142,7 +271,7 @@ function Oekaki(setupOptions) {
 		alert(message);
 	}
 
-	function setLayer(name) {
+	function setLayerActive(name) {
 		if (name in layers) {
 			log("Setting active layer: " + name);
 			currentLayer = name;
@@ -151,12 +280,15 @@ function Oekaki(setupOptions) {
 	}
 
 	function updateBrush() {
+		log("Updating brush for current layer");
+		log(brush);
 		var ctx = getCurrentLayer().ctx;
 		ctx.strokeStyle = brush.color;
 		ctx.lineWidth = brush.size;
+		ctx.globalAlpha = brush.opacity;
 	}
 
-	function addLayer(name) {
+	function addLayer(name, isBg) {
 		log("Adding layer: " + name);
 		
 		if (name in layers) {
@@ -169,12 +301,15 @@ function Oekaki(setupOptions) {
 		canvas.height = options.height;
 		elems.page.appendChild(canvas);
 
-		layers[name] = {
+		var layer = layers[name] = {
 			canvas: canvas,
-			ctx: canvas.getContext('2d')
+			ctx: canvas.getContext('2d'),
+			isBackground: isBg
 		};
 
-		setLayer(name);
+		setLayerActive(name);
+
+		return layer;
 	}
 
 	function mergeDefaults(defaults, values) {
@@ -222,12 +357,18 @@ function Oekaki(setupOptions) {
 
 	events.stopDrawing = function(e) {
 		e.preventDefault();
-		log("Stop drawing");
+		if (flags.drawing) {
+			log("Stop drawing");
+		}
 		flags.drawing = false;
 	}
 
 	function getCurrentLayer() {
-		return layers[currentLayer];
+		return getLayer(currentLayer);
+	}
+
+	function getLayer(name) {
+		return layers[name];
 	}
 
 	function draw(from, to) {
@@ -238,6 +379,20 @@ function Oekaki(setupOptions) {
 		layer.ctx.stroke();
 		layer.ctx.closePath();
 		flags.unsaved = true;
+	}
+	
+	function clear() {
+		for (var i in layers) {
+			var layer = layers[i];
+			if (layer.isBackground && options.backgroundColor && options.backgroundColor != "transparent") {
+				layer.ctx.fillStyle = options.backgroundColor;
+				layer.ctx.globalAlpha = 1;
+				layer.ctx.fillRect(0, 0, layer.canvas.width, layer.canvas.height);
+				updateBrush();
+			} else {
+				layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+			}
+		}
 	}
 
 	function download(filename) {

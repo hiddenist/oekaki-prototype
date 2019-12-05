@@ -11,6 +11,46 @@ body {
 	padding-top: 100px;
 }
 
+.oekaki-create-form {
+	display: block;
+	margin: 0 auto;
+	width: 400px;
+	max-width: 100%;
+}
+
+.oekaki-form label {
+	display: block;
+	margin-bottom: 15px;
+}
+
+.oekaki-form label input, .oekaki-form label textarea, .oekaki-form label select {
+	display: block;
+	margin-top: 3px;
+	width: 100%;
+	font-size: 15px;
+}
+
+.oekaki-create-form label.oekaki-create-input-width, .oekaki-create-form label.oekaki-create-input-height {
+	width: 50%;
+	box-sizing: border-box;
+	display: inline-block;
+}
+
+.oekaki-create-form label.oekaki-create-input-width {
+	padding-right: 10px;
+}
+
+.oekaki-create-form label.oekaki-create-input-height {
+	padding-left: 10px;
+}
+
+.oekaki-create-form button {
+	display: block;
+	width: 100%;
+	margin-top: 10px;
+	font-size: 30px;
+}
+
 .oekaki-page {
 	margin: 0 auto;
 	border: 1px solid rgba(0, 0, 0, 0.5);
