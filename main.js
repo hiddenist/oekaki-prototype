@@ -41,6 +41,14 @@ function Oekaki(setupOptions) {
 				label: "Clear",
 				active: true
 			},
+			rename: {
+				action: function(e) {
+					options.name = prompt("Enter drawing name", options.name);
+					updateTitle();
+				},
+				label: "Rename",
+				active: true
+			},
 			save: {
 				action: function(e) {
 					download(options.name + ".png");
@@ -221,8 +229,7 @@ function Oekaki(setupOptions) {
 		elems.page.style.height = options.height + "px";
 
 		document.originalTitle = document.title;
-		document.title = '"' + options.name + '" - ' + document.title;
-		document.cleanTitle = document.title;
+		updateTitle();
 
 		elems.buttons = document.createElement('div');
 		elems.buttons.className = "oekaki-buttons";
@@ -382,6 +389,11 @@ function Oekaki(setupOptions) {
 		layer.ctx.stroke();
 		layer.ctx.closePath();
 		setUnsaved();
+	}
+
+	function updateTitle() {
+		document.title = '"' + options.name + '" - ' + document.originalTitle;
+		document.cleanTitle = document.title;
 	}
 
 	function setUnsaved() {
