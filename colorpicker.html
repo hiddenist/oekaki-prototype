@@ -62,7 +62,7 @@
 			var color = colorFromHex(hex)
 
 			var grads = {
-				x: color.getHue().toHex(),
+				x: color.getHueColor().toHex(),
 				y: '#000000',
 			};
 
@@ -82,7 +82,7 @@
 		colorCanvas.addEventListener('mousemove', function(e) {
 			var coords = getEventCoords(e);
 			var data = colorCtx.getImageData(coords.x, coords.y, 1, 1).data;
-			var rgba = new Color(data[0], data[1], data[2]);
+			var rgba = new Color(new RGB(data[0], data[1], data[2]));
 			document.getElementById('colorPreview').style.backgroundColor = rgba.toString();
 		});
 
@@ -93,7 +93,7 @@
 		colorCanvas.addEventListener('click', function(e) {
 			var coords = getEventCoords(e);
 			var data = colorCtx.getImageData(coords.x, coords.y, 1, 1).data;
-			var rgba = new Color(data[0], data[1], data[2]);
+			var rgba = new Color(new RGB(data[0], data[1], data[2]));
 			document.getElementById('color').value = rgba.toHex();
 			document.getElementById('selectedColor').style.backgroundColor = rgba.toString();
 		});
@@ -119,7 +119,7 @@
 		hueCanvas.addEventListener('click', function(e) {
 			var coords = getEventCoords(e);
 			var data = hueCtx.getImageData(coords.x, coords.y, 1, 1).data;
-			var rgba = new Color(data[0], data[1], data[2]);
+			var rgba = new Color(new RGB(data[0], data[1], data[2]));
 			drawColorCanvas(rgba.toHex());
 		});
 
@@ -128,17 +128,71 @@
 			drawColorCanvas(hex.value);
 		});
 
-		function Color(r, g, b, a) {
+		function HSV(h, s, v) {
 			var that = this;
+			that.h = h;
+			that.s = s;
+			that.v = v;
+			that.type = 'HSV';
+			return that;
+		}
 
+		function RGB(r, g, b) {
+			var that = this;
 			that.r = r;
 			that.g = g;
 			that.b = b;
-			that.a = a || 1;
-			setHSV();
+			that.type = 'RGB';
+			return that;
+		}
 
-			function setHSV() {
-				var rgb = [ that.r, that.g, that.b ];
+		function Color(rgbOrHsv, a) {
+			var that = this;
+
+			that.a = a || 1;
+			
+			switch (rgbOrHsv.type) {
+				case "RGB":
+					makeFromRGB(rgbOrHsv);
+					break;
+				case "HSV":
+					makeFromHSV(rgbOrHsv);
+					break;
+				default: throw new "Unknown type passed into color";
+			}
+
+			function makeFromHSV(hsv) {
+				that.h = hsv.h;
+				that.s = hsv.s;
+				that.v = hsv.v;
+
+				var rgb = [null, null, null];
+
+				var hPos = hsv.h / 120;
+
+				var cMax = hsv.v / 100 * 255;
+				var cMin = cMax * (100 - hsv.s) / 100;
+				var cMid = (hPos % 1) * (cMax - cMin);
+
+				var iMax = Math.round(hPos),
+					iMid = iMax + (iMax > hPos? -1 : 1),
+					iMin = iMax + (iMax > hPos? 1 : -1);
+
+				rgb[(3 + iMax) % 3] = Math.round(cMax);
+				rgb[(3 + iMid) % 3] = Math.round(cMid);
+				rgb[(3 + iMin) % 3] = Math.round(cMin);
+
+				that.r = rgb[0];
+				that.g = rgb[1];
+				that.b = rgb[2];
+			}
+
+			function makeFromRGB(rgbObj) {
+				that.r = rgbObj.r;
+				that.g = rgbObj.g;
+				that.b = rgbObj.b;
+
+				var rgb = rgbObj.toArray();
 
 				var max = Math.max(...rgb);
 				var min = Math.min(...rgb);
@@ -149,33 +203,34 @@
 				if (max == min) {
 					that.h = 0;
 					that.s = 0;
-				} else {
-					// Calculate hue
-					that.h = 0;
-					var foundMax = false;
-					for (var i in rgb) {
-						if (rgb[i] == max && !foundMax) {
-							that.h += i * 120;
-							foundMax = true;
-						} else if (rgb[i] > min) {
-							var mult = foundMax? 1 : -1;
-
-							if (i == rgb.length - 1 && foundMax) {
-								that.h = 360;
-								mult = -1;
-							}
-
-							that.h += mult * ((rgb[i] - min) / (max - min)) * 60;
-						}
-					}
-
-					that.h = Math.round(that.h);
-
-					// Calculate saturation
-					that.s = Math.round(100 * (max - min) / max);
+					return;
 				}
-			}
 
+				// Calculate hue
+				that.h = 0;
+				var foundMax = false;
+				for (var i in rgb) {
+					if (rgb[i] == max && !foundMax) {
+						that.h += i * 120;
+						foundMax = true;
+					} else if (rgb[i] > min) {
+						var mult = foundMax? 1 : -1;
+
+						if (i == rgb.length - 1 && foundMax) {
+							that.h = 360;
+							mult = -1;
+						}
+
+						that.h += mult * ((rgb[i] - min) / (max - min)) * 60;
+					}
+				}
+
+				that.h = Math.round(that.h);
+
+				// Calculate saturation
+				that.s = Math.round(100 * (max - min) / max);
+			
+			}
 
 			that.toString = function() {
 				return "rgba(" + that.r + ", " + that.g + ", " + that.b + ", " + that.a + ")";
@@ -189,76 +244,27 @@
 				return "hsva(" + that.h + ", " + that.s + ", " + that.v + ", " + that.a + ")";
 			}
 
-
-			that.getHue = function() {
-				var hue = [
-					that.r,
-					that.g,
-					that.b
-				];
-
-				var max = Math.max(...hue);
-				var min = Math.min(...hue);
-				var range = max - min;
-
-				if (range == 0) {
-					return new Color(255, 0, 0);
-				}
-				
-				for (var i in hue) {
-					if (hue[i] == max) {
-						hue[i] = 255;
-					} else if (hue[i] == min) {
-						hue[i] = 0;
-					} else {
-						hue[i] = (hue[i] - min) / range * 255;
-					}
-				}
-
-				return new Color(...hue);
+			that.getHueColor = function() {
+				return new Color(new HSV(h, 100, 100));
 			}
 
 			return that;
 		}
 
 		function colorFromHex(hex) {
-			var m = hex.match(/^#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})$/);
+			var m = hex.match(/^#?([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})$/);
 
 			if (!m) {
 				throw hex + " is not a valid hexadecimal value";
 			}
 
-			var r = parseInt(m[1], 16);
-			var g = parseInt(m[2], 16);
-			var b = parseInt(m[3], 16);
-			return new Color(r, g, b);
-		}
+			var rgb = new RGB(
+				parseInt(m[1], 16),
+				parseInt(m[2], 16),
+				parseInt(m[3], 16)
+			);
 
-		function colorFromHSV(h, s, v, a) {
-			var rgb = [null, null, null];
-
-			var pos = h / 120;
-			var iMax = Math.round(pos), iMid, iMin;
-
-			var cMax = v / 100 * 255;
-			var cMin = cMax * (100 - s) / 100;
-			var cMid = ((h % 60) / 60) * (cMax - cMin);
-
-			if (iMax > pos) {
-				iMid = iMax - 1;
-				iMin = iMax + 1;
-				cMid = cMax - cMid;
-			} else {
-				iMid = iMax + 1;
-				iMin = iMax - 1;
-				cMid = cMin + cMid;
-			}
-
-			rgb[(3 + iMax) % 3] = Math.round(cMax);
-			rgb[(3 + iMid) % 3] = Math.round(cMid);
-			rgb[(3 + iMin) % 3] = Math.round(cMin);
-
-			return new Color(...rgb, a);
+			return new Color(rgb);
 		}
 
 		function getEventCoords(e) {
