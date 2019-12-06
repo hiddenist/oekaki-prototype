@@ -13,22 +13,22 @@
 
 		.colorbox {
 			background-color: #fff;
-			width: 75px;
+			width: 95px;
 			display: block;
 			box-sizing: border-box;
 		}
 
 		#colorPreview {
-			height: 95px;
+			height: 130px;
 		}
 		
 		#selectedColor {
-			height: 75px;
+			height: 95px;
 		}
 
 		#color {
 			margin-bottom: 10px;
-			width: 75px;
+			width: 95px;
 			height: 20px;
 			line-height: 20px;
 			padding: 0 3px;
@@ -42,27 +42,35 @@
 	</style>
 </head>
 <body>
-	<canvas id="colorPicker" width="200" height="200"></canvas>
+	<canvas id="colorPicker" width="255" height="255"></canvas>
 	<div style="overflow: hidden">
 		<input id="color" value="#FFFFFF">
 		<div id="selectedColor" class="colorbox"></div>
 		<div id="colorPreview" class="colorbox"></div>
 	</div>
-	<canvas id="huePicker" width="285" height="20"></canvas>
+	<canvas id="huePicker" width="360" height="20"></canvas>
 	<script>
 		var hex = document.getElementById("color");
 		var colorCanvas = document.getElementById('colorPicker');
 		var hueCanvas = document.getElementById('huePicker');
 		var colorCtx = colorCanvas.getContext('2d');
 		var hueCtx = hueCanvas.getContext('2d');
+		var selectedColor = colorFromHex(hex.value || "#ffffff");
+		var previewColor;
 
-		drawColorCanvas(hex.value || "#ffffff");
+		setPreviewColor(selectedColor);
 
-		function drawColorCanvas(hex) {
-			var color = colorFromHex(hex)
+		function setPreviewColor(color) {
+			if (!previewColor || previewColor.h != color.h) {
+				updatePickerHue(color.getHueColor());
+			}
+			previewColor = color;
+			document.getElementById('colorPreview').style.backgroundColor = previewColor.toString();
+		}
 
+		function updatePickerHue(hueColor) {
 			var grads = {
-				x: color.getHueColor().toHex(),
+				x: hueColor.toHex(),
 				y: '#000000',
 			};
 
@@ -80,22 +88,19 @@
 		}
 
 		colorCanvas.addEventListener('mousemove', function(e) {
-			var coords = getEventCoords(e);
-			var data = colorCtx.getImageData(coords.x, coords.y, 1, 1).data;
-			var rgba = new Color(new RGB(data[0], data[1], data[2]));
-			document.getElementById('colorPreview').style.backgroundColor = rgba.toString();
+			setPreviewColor(getColorFromEvent(e));
+			document.getElementById('color').value = previewColor.toHex();
 		});
 
-		colorCanvas.addEventListener('mouseleave', function(e) {
-			document.getElementById('colorPreview').style.backgroundColor = document.getElementById('color').value;
+		colorCanvas.addEventListener('mouseout', function(e) {
+			setPreviewColor(selectedColor);
+			document.getElementById('color').value = selectedColor.toHex();
 		});
 
 		colorCanvas.addEventListener('click', function(e) {
-			var coords = getEventCoords(e);
-			var data = colorCtx.getImageData(coords.x, coords.y, 1, 1).data;
-			var rgba = new Color(new RGB(data[0], data[1], data[2]));
-			document.getElementById('color').value = rgba.toHex();
-			document.getElementById('selectedColor').style.backgroundColor = rgba.toString();
+			selectedColor = getColorFromEvent(e);
+			document.getElementById('color').value = selectedColor.toHex();
+			document.getElementById('selectedColor').style.backgroundColor = selectedColor.toString();
 		});
 
 		var hues = [
@@ -118,14 +123,13 @@
 
 		hueCanvas.addEventListener('click', function(e) {
 			var coords = getEventCoords(e);
-			var data = hueCtx.getImageData(coords.x, coords.y, 1, 1).data;
-			var rgba = new Color(new RGB(data[0], data[1], data[2]));
-			drawColorCanvas(rgba.toHex());
+			var hue = 360 * coords.x / hueCanvas.width;
+			setPreviewColor(new Color(new HSV(hue, previewColor.s, previewColor.v)));
 		});
 
 		hex.addEventListener('change', function() {
 			document.getElementById('selectedColor').style.backgroundColor = hex.value;
-			drawColorCanvas(hex.value);
+			setPreviewColor(colorFromHex(hex.value));
 		});
 
 		function HSV(h, s, v) {
@@ -134,6 +138,11 @@
 			that.s = s;
 			that.v = v;
 			that.type = 'HSV';
+
+			that.toArray = function() {
+				return [that.h, that.s, that.v];
+			}
+
 			return that;
 		}
 
@@ -143,6 +152,11 @@
 			that.g = g;
 			that.b = b;
 			that.type = 'RGB';
+
+			that.toArray = function() {
+				return [that.r, that.g, that.b];
+			}
+
 			return that;
 		}
 
@@ -174,9 +188,18 @@
 				var cMin = cMax * (100 - hsv.s) / 100;
 				var cMid = (hPos % 1) * (cMax - cMin);
 
-				var iMax = Math.round(hPos),
-					iMid = iMax + (iMax > hPos? -1 : 1),
-					iMin = iMax + (iMax > hPos? 1 : -1);
+				var iMax = Math.round(hPos);
+				var iMid, iMin;
+
+				if (iMax > hPos) {
+					iMid = iMax - 1;
+					iMin = iMax + 1;
+					cMid = cMax - cMid;
+				} else {
+					iMid = iMax + 1;
+					iMin = iMax - 1;
+					cMid = cMin + cMid;
+				}
 
 				rgb[(3 + iMax) % 3] = Math.round(cMax);
 				rgb[(3 + iMid) % 3] = Math.round(cMid);
@@ -245,7 +268,7 @@
 			}
 
 			that.getHueColor = function() {
-				return new Color(new HSV(h, 100, 100));
+				return new Color(new HSV(that.h, 100, 100));
 			}
 
 			return that;
@@ -272,6 +295,13 @@
 				x: e.offsetX || e.layerX,
 				y: e.offsetY || e.layerY
 			};
+		}
+
+		function getColorFromEvent(e) {
+			var coords = getEventCoords(e);
+			var s = coords.x / colorCanvas.width * 100;
+			var v = 100 - coords.y / colorCanvas.height * 100;
+			return new Color(new HSV(previewColor.h, s, v));
 		}
 	</script>
 </body>
