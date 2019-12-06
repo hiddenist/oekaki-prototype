@@ -69,22 +69,19 @@
 		}
 
 		function updatePickerHue(hueColor) {
-			var grads = {
-				x: hueColor.toHex(),
-				y: '#000000',
-			};
+			var grad = colorCtx.createLinearGradient(0, 0, colorCanvas.width, 0);
+			grad.addColorStop(0, 'rgba(255, 255, 255)');
+			grad.addColorStop(1, hueColor.toString());
 
-			colorCtx.fillStyle = '#ffffff';
+			colorCtx.fillStyle = grad;
 			colorCtx.fillRect(0, 0, colorCanvas.width, colorCanvas.height);
 
-			for (var i in grads) {
-				var grad = colorCtx.createLinearGradient(0, 0, i == 'x'? colorCanvas.width : 0, i == 'y'? colorCanvas.height : 0);
-				grad.addColorStop(0, 'transparent');
-				grad.addColorStop(1, grads[i]);
+			var vgrad = colorCtx.createLinearGradient(0, 0,0 , colorCanvas.height);
+			vgrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+			vgrad.addColorStop(1, 'rgba(0, 0, 0, 255)');
 
-				colorCtx.fillStyle = grad;
-				colorCtx.fillRect(0, 0, colorCanvas.width, colorCanvas.height);
-			}
+			colorCtx.fillStyle = vgrad;
+			colorCtx.fillRect(0, 0, colorCanvas.width, colorCanvas.height);
 		}
 
 		colorCanvas.addEventListener('mousemove', function(e) {
