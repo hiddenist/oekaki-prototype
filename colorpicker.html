@@ -196,9 +196,7 @@
 			});
 
 			hueCanvas.addEventListener('click', function(e) {
-				var coords = getEventCoords(e);
-				var hue = 360 * coords.x / hueCanvas.width * 2;
-				selectColor(new Color(new HSV(hue, previewColor.s, previewColor.v)));
+				selectColor(adjustHueFromPosition(e));
 			});
 
 			hueCanvas.addEventListener('mousedown', function(e) {
@@ -206,9 +204,7 @@
 			});
 
 			hueCanvas.addEventListener('mousemove', function(e) {
-				var coords = getEventCoords(e);
-				var hue = 360 * coords.x / hueCanvas.width * 2;
-				var newColor = new Color(new HSV(hue, previewColor.s, previewColor.v));
+				var newColor = adjustHueFromPosition(e);
 				if (clickingHue) {
 					selectColor(newColor);
 				} else {
@@ -230,146 +226,10 @@
 				selectColor(colorFromHex(hex.value));
 			});
 
-			function HSV(h, s, v) {
-				var that = this;
-				that.h = h;
-				that.s = s;
-				that.v = v;
-				that.type = 'HSV';
-
-				that.toArray = function() {
-					return [that.h, that.s, that.v];
-				}
-
-				return that;
-			}
-
-			function RGB(r, g, b) {
-				var that = this;
-				that.r = r;
-				that.g = g;
-				that.b = b;
-				that.type = 'RGB';
-
-				that.toArray = function() {
-					return [that.r, that.g, that.b];
-				}
-
-				return that;
-			}
-
-			function Color(rgbOrHsv, a) {
-				var that = this;
-
-				that.a = a || 1;
-				
-				switch (rgbOrHsv.type) {
-					case "RGB":
-						makeFromRGB(rgbOrHsv);
-						break;
-					case "HSV":
-						makeFromHSV(rgbOrHsv);
-						break;
-					default: throw new "Unknown type passed into color";
-				}
-
-				function makeFromHSV(hsv) {
-					that.h = hsv.h;
-					that.s = hsv.s;
-					that.v = hsv.v;
-
-					var rgb = [null, null, null];
-
-					var hPos = hsv.h / 120;
-
-					var cMax = hsv.v / 100 * 255;
-					var cMin = cMax * (100 - hsv.s) / 100;
-					var cMid = (hPos % 1) * (cMax - cMin);
-
-					var iMax = Math.round(hPos);
-					var iMid, iMin;
-
-					if (iMax > hPos) {
-						iMid = iMax - 1;
-						iMin = iMax + 1;
-						cMid = cMax - cMid;
-					} else {
-						iMid = iMax + 1;
-						iMin = iMax - 1;
-						cMid = cMin + cMid;
-					}
-
-					rgb[(3 + iMax) % 3] = Math.round(cMax);
-					rgb[(3 + iMid) % 3] = Math.round(cMid);
-					rgb[(3 + iMin) % 3] = Math.round(cMin);
-
-					that.r = rgb[0];
-					that.g = rgb[1];
-					that.b = rgb[2];
-				}
-
-				function makeFromRGB(rgbObj) {
-					that.r = rgbObj.r;
-					that.g = rgbObj.g;
-					that.b = rgbObj.b;
-
-					var rgb = rgbObj.toArray();
-
-					var max = Math.max(...rgb);
-					var min = Math.min(...rgb);
-
-					// Calculate value
-					that.v = Math.round((max / 255) * 100);
-
-					if (max == min) {
-						that.h = 0;
-						that.s = 0;
-						return;
-					}
-
-					// Calculate hue
-					that.h = 0;
-					var foundMax = false;
-					for (var i in rgb) {
-						if (rgb[i] == max && !foundMax) {
-							that.h += i * 120;
-							foundMax = true;
-						} else if (rgb[i] > min) {
-							var mult = foundMax? 1 : -1;
-
-							if (i == rgb.length - 1 && foundMax) {
-								that.h = 360;
-								mult = -1;
-							}
-
-							that.h += mult * ((rgb[i] - min) / (max - min)) * 60;
-						}
-					}
-
-					that.h = Math.round(that.h);
-
-					// Calculate saturation
-					that.s = Math.round(100 * (max - min) / max);
-				
-				}
-
-				that.toString = function() {
-					return "rgba(" + that.r + ", " + that.g + ", " + that.b + ", " + that.a + ")";
-				}
-
-				that.toHex = function() {
-					return "#" + ("000000" + ((that.r << 16) | (that.g << 8) | that.b).toString(16)).slice(-6).toUpperCase();
-				}
-
-				that.toHSVA = function() {
-					return "hsva(" + that.h + ", " + that.s + ", " + that.v + ", " + that.a + ")";
-				}
-
-				that.getHueColor = function() {
-					return new Color(new HSV(that.h, 100, 100));
-				}
-
-				return that;
+			function adjustHueFromPosition(e) {
+				var coords = getEventCoords(e);
+				var hue = 360 * coords.x / hueCanvas.width * 2;
+				return new Color(new HSV(hue, previewColor.s, previewColor.v));
 			}
 
 			function colorFromHex(hex) {
@@ -403,6 +263,157 @@
 			}
 		}
 		ColorPicker();
+
+
+		function HSV(h, s, v) {
+			var that = this;
+			that.h = h;
+			that.s = s;
+			that.v = v;
+			that.type = 'HSV';
+
+			that.toArray = function() {
+				return [that.h, that.s, that.v];
+			}
+
+			return that;
+		}
+
+		function RGB(r, g, b) {
+			var that = this;
+			that.r = r;
+			that.g = g;
+			that.b = b;
+			that.type = 'RGB';
+
+			that.toArray = function() {
+				return [that.r, that.g, that.b];
+			}
+
+			return that;
+		}
+
+		function Color(rgbOrHsv, a) {
+			var that = this;
+
+			that.a = a || 1;
+			
+			switch (rgbOrHsv.type) {
+				case "RGB":
+					makeFromRGB(rgbOrHsv);
+					break;
+				case "HSV":
+					makeFromHSV(rgbOrHsv);
+					break;
+				default: throw new "Unknown type passed into color";
+			}
+
+			function makeFromHSV(hsv) {
+				that.h = hsv.h;
+				that.s = hsv.s;
+				that.v = hsv.v;
+
+				var rgb = [null, null, null];
+
+				var hPos = hsv.h / 120;
+				var iMax = Math.round(hPos),
+					iMid = iMax > hPos? iMax - 1 : iMax + 1,
+					iMin = iMax > hPos? iMax + 1 : iMax - 1;
+
+				var cMax = hsv.v / 100 * 255;
+				var cMin = cMax * (100 - hsv.s) / 100;
+				var cMid = cMin + ( Math.abs(iMax - hPos) * 2 * (cMax - cMin) );
+
+				rgb[(3 + iMax) % 3] = Math.round(cMax);
+				rgb[(3 + iMid) % 3] = Math.round(cMid);
+				rgb[(3 + iMin) % 3] = Math.round(cMin);
+
+				that.r = rgb[0];
+				that.g = rgb[1];
+				that.b = rgb[2];
+			}
+
+			function makeFromRGB(rgbObj) {
+				that.r = rgbObj.r;
+				that.g = rgbObj.g;
+				that.b = rgbObj.b;
+
+				var rgb = rgbObj.toArray();
+
+				var max = Math.max(...rgb);
+				var min = Math.min(...rgb);
+
+				// Calculate value
+				that.v = Math.round((max / 255) * 100);
+
+				if (max == min) {
+					that.h = 0;
+					that.s = 0;
+					return;
+				}
+
+				// Calculate hue
+				that.h = 0;
+				var foundMax = false;
+				for (var i in rgb) {
+					if (rgb[i] == max && !foundMax) {
+						that.h += i * 120;
+						foundMax = true;
+					} else if (rgb[i] > min) {
+						var mult = foundMax? 1 : -1;
+
+						if (i == rgb.length - 1 && foundMax) {
+							that.h = 360;
+							mult = -1;
+						}
+
+						that.h += mult * ((rgb[i] - min) / (max - min)) * 60;
+					}
+				}
+
+				that.h = Math.round(that.h);
+
+				// Calculate saturation
+				that.s = Math.round(100 * (max - min) / max);
+			
+			}
+
+			that.toString = function() {
+				return "rgba(" + that.r + ", " + that.g + ", " + that.b + ", " + that.a + ")";
+			}
+
+			that.toHex = function() {
+				return "#" + ("000000" + ((that.r << 16) | (that.g << 8) | that.b).toString(16)).slice(-6).toUpperCase();
+			}
+
+			that.toHSVA = function() {
+				return "hsva(" + that.h + ", " + that.s + ", " + that.v + ", " + that.a + ")";
+			}
+
+			that.getHueColor = function() {
+				return new Color(new HSV(that.h, 100, 100));
+			}
+
+			return that;
+		}
+
+		function assertEquals(val1, val2, msg) {
+			if (val1 !== val2) {
+				console.log(val1, val2);
+				throw "- Assertion failed: " + val1 + " === " + val1 + "\nMessage: " + msg;
+			}
+		}
+
+		function runTests() {
+			// needs more tests tho
+			assertEquals((new Color(new HSV(0, 100, 100))).toHex(), '#FF0000', "Hue not converting to RGB correctly (0)");
+			assertEquals((new Color(new HSV(60, 100, 100))).toHex(), '#FFFF00', "Hue not converting to RGB correctly (60)");
+			assertEquals((new Color(new HSV(120, 100, 100))).toHex(), '#00FF00', "Hue not converting to RGB correctly (120)");
+			assertEquals((new Color(new HSV(180, 100, 100))).toHex(), '#00FFFF', "Hue not converting to RGB correctly (180)");
+			assertEquals((new Color(new HSV(240, 100, 100))).toHex(), '#0000FF', "Hue not converting to RGB correctly (240)");
+			assertEquals((new Color(new HSV(300, 100, 100))).toHex(), '#FF00FF', "Hue not converting to RGB correctly (300)");
+			assertEquals((new Color(new HSV(360, 100, 100))).toHex(), '#FF0000', "Hue not converting to RGB correctly (360)");
+		}
 	</script>
 </body>
 </html>
