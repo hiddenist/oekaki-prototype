@@ -9,6 +9,8 @@
 		#colorPicker {
 			float: left;
 			margin-right: 10px;
+			width: 255px;
+			height: 255px;
 		}
 
 		.colorbox {
@@ -38,38 +40,48 @@
 
 		#huePicker {
 			margin-top: 10px;
+			width: 360px;
+			height: 20px;
 		}
 	</style>
 </head>
 <body>
-	<canvas id="colorPicker" width="255" height="255"></canvas>
+	<canvas id="colorPicker" width="510" height="510"></canvas>
 	<div style="overflow: hidden">
 		<input id="color" value="#FFFFFF">
 		<div id="selectedColor" class="colorbox"></div>
 		<div id="colorPreview" class="colorbox"></div>
 	</div>
-	<canvas id="huePicker" width="360" height="20"></canvas>
+	<canvas id="huePicker" width="720" height="40"></canvas>
 	<script>
 		function ColorPicker() {
-			var hex = document.getElementById("color");
-			var colorCanvas = document.getElementById('colorPicker');
-			var hueCanvas = document.getElementById('huePicker');
-			var colorCtx = colorCanvas.getContext('2d');
-			var hueCtx = hueCanvas.getContext('2d');
-			var selectedColor = colorFromHex(hex.value || "#ffffff");
-			var previewColor;
+			var hex = document.getElementById('color');
+				selectedColorSwatch = document.getElementById('selectedColor'),
+				previewColorSwatch = document.getElementById('colorPreview'),
+				colorCanvas = document.getElementById('colorPicker');
+				hueCanvas = document.getElementById('huePicker');
+				colorCtx = colorCanvas.getContext('2d');
+				hueCtx = hueCanvas.getContext('2d');
+				selectedColor = colorFromHex(hex.value || "#ffffff");
 
-			setPreviewColor(selectedColor);
+			var previewColor,
+					clickingColor = false,
+					clickingHue = false;
+
+			drawHueGradient();
+			selectColor(selectedColor);
 
 			function setPreviewColor(color) {
 				if (!previewColor || previewColor.h != color.h) {
-					updatePickerHue(color.getHueColor());
+					drawPickerGradient(color.getHueColor());
+					drawColorDisc(color);
 				}
 				previewColor = color;
-				document.getElementById('colorPreview').style.backgroundColor = previewColor.toString();
+				previewColorSwatch.style.backgroundColor = previewColor.toString();
+				hex.value = previewColor.toHex();
 			}
 
-			function updatePickerHue(hueColor) {
+			function drawPickerGradient(hueColor) {
 				var grad = colorCtx.createLinearGradient(0, 0, colorCanvas.width, 0);
 				grad.addColorStop(0, 'rgba(255, 255, 255)');
 				grad.addColorStop(1, hueColor.toString());
@@ -85,49 +97,137 @@
 				colorCtx.fillRect(0, 0, colorCanvas.width, colorCanvas.height);
 			}
 
+			function selectColor(color) {
+				setPreviewColor(color);
+
+				selectedColor = color;
+				selectedColorSwatch.style.backgroundColor = color.toString();
+				drawColorDisc(color);
+				drawSelectedHueBox(color);
+			}
+
+			function drawColorDisc(color) {
+				drawPickerGradient(color.getHueColor());
+				var x = colorCanvas.width * (color.s / 100),
+					y = colorCanvas.height * (1 - color.v / 100);
+
+				colorCtx.beginPath();
+				colorCtx.arc(x + 1, y + 1, 14, 0, 2 * Math.PI);
+				colorCtx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+				colorCtx.lineWidth = 2;
+				colorCtx.stroke();
+				colorCtx.closePath();
+
+				colorCtx.beginPath();
+				colorCtx.arc(x, y, 14, 0, 2 * Math.PI);
+				colorCtx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+				colorCtx.lineWidth = 2;
+				colorCtx.stroke();
+				colorCtx.closePath();
+			}
+
+			function drawSelectedHueBox(color) {
+				drawHueGradient();
+				var x = color.h / 360 * hueCanvas.width,
+					w = 15;
+
+				hueCtx.lineWidth = 2;
+
+				hueCtx.beginPath();
+				hueCtx.rect(x - (w/2), 2, w, hueCanvas.height - 2);
+				hueCtx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+				hueCtx.stroke();
+				hueCtx.closePath();
+
+				hueCtx.beginPath();
+				hueCtx.rect(x - (w/2) - 1, 1, w, hueCanvas.height - 2);
+				hueCtx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+				hueCtx.stroke();
+				hueCtx.closePath();
+				
+			}
+
+			function drawHueGradient() {
+				var hues = [
+					"#ff0000",
+					"#ffff00",
+					"#00ff00",
+					"#00ffff",
+					"#0000ff",
+					"#ff00ff",
+					"#ff0000"
+				];
+
+				var hueGrad = colorCtx.createLinearGradient(0, 0, hueCanvas.width, 0);
+				for (var i in hues) {
+					var start = i / (hues.length - 1);
+					hueGrad.addColorStop(start, hues[i]);
+				}
+				hueCtx.fillStyle = hueGrad;
+				hueCtx.fillRect(0, 0, hueCanvas.width, hueCanvas.height);
+			}
+
 			colorCanvas.addEventListener('mousemove', function(e) {
-				setPreviewColor(getColorFromEvent(e));
-				document.getElementById('color').value = previewColor.toHex();
+				if (clickingColor) {
+					selectColor(getColorFromEvent(e));
+				} else {
+					setPreviewColor(getColorFromEvent(e));
+				}
 			});
 
 			colorCanvas.addEventListener('mouseout', function(e) {
-				setPreviewColor(selectedColor);
-				document.getElementById('color').value = selectedColor.toHex();
+				if (!clickingColor) {
+					setPreviewColor(selectedColor);
+				}
+			});
+
+			colorCanvas.addEventListener('mousedown', function(e) {
+				clickingColor = true;
 			});
 
 			colorCanvas.addEventListener('click', function(e) {
-				selectedColor = getColorFromEvent(e);
-				document.getElementById('color').value = selectedColor.toHex();
-				document.getElementById('selectedColor').style.backgroundColor = selectedColor.toString();
+				selectColor(getColorFromEvent(e));
 			});
 
-			var hues = [
-				"#ff0000",
-				"#ffff00",
-				"#00ff00",
-				"#00ffff",
-				"#0000ff",
-				"#ff00ff",
-				"#ff0000"
-			];
 
-			var hueGrad = colorCtx.createLinearGradient(0, 0, hueCanvas.width, 0);
-			for (var i in hues) {
-				var start = i / (hues.length - 1);
-				hueGrad.addColorStop(start, hues[i]);
-			}
-			hueCtx.fillStyle = hueGrad;
-			hueCtx.fillRect(0, 0, hueCanvas.width, hueCanvas.height);
+			document.addEventListener('mouseup', function(e) {
+				clickingColor = false;
+				clickingHue = false;
+			});
 
 			hueCanvas.addEventListener('click', function(e) {
 				var coords = getEventCoords(e);
-				var hue = 360 * coords.x / hueCanvas.width;
-				setPreviewColor(new Color(new HSV(hue, previewColor.s, previewColor.v)));
+				var hue = 360 * coords.x / hueCanvas.width * 2;
+				selectColor(new Color(new HSV(hue, previewColor.s, previewColor.v)));
+			});
+
+			hueCanvas.addEventListener('mousedown', function(e) {
+				clickingHue = true;
+			});
+
+			hueCanvas.addEventListener('mousemove', function(e) {
+				var coords = getEventCoords(e);
+				var hue = 360 * coords.x / hueCanvas.width * 2;
+				var newColor = new Color(new HSV(hue, previewColor.s, previewColor.v));
+				if (clickingHue) {
+					selectColor(newColor);
+				} else {
+					setPreviewColor(newColor);
+				}
+			});
+
+			hueCanvas.addEventListener('mousedown', function(e) {
+				clickingHue = true;
+			});
+
+			hueCanvas.addEventListener('mouseout', function(e) {
+				if (!clickingHue) {
+					setPreviewColor(selectedColor);
+				}
 			});
 
 			hex.addEventListener('change', function() {
-				document.getElementById('selectedColor').style.backgroundColor = hex.value;
-				setPreviewColor(colorFromHex(hex.value));
+				selectColor(colorFromHex(hex.value));
 			});
 
 			function HSV(h, s, v) {
@@ -297,8 +397,8 @@
 
 			function getColorFromEvent(e) {
 				var coords = getEventCoords(e);
-				var s = coords.x / colorCanvas.width * 100;
-				var v = 100 - coords.y / colorCanvas.height * 100;
+				var s = coords.x * 2 / colorCanvas.width * 100;
+				var v = 100 - coords.y * 2 / colorCanvas.height * 100;
 				return new Color(new HSV(previewColor.h, s, v));
 			}
 		}
