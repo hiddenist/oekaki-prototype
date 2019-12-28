@@ -113,3 +113,35 @@ body {
 	border-radius: 3px;
 	text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);
 }
+
+.color-picker {
+	background-color: rgba(0, 0, 0, 0.5);
+	border: 1px solid #rgba(0, 0, 0, 1);
+	/* position: absolute;
+	top: 0;
+	left: 0; */
+	z-index: 1000;
+}
+
+.color-picker .color-canvas {
+	float: left;
+}
+
+.color-picker .right-panel {
+	float: right;
+}
+
+.color-picker .color-swatch {
+	width: 100%;
+	display: block;
+	box-sizing: border-box;
+}
+
+.color-picker .color-input {
+	width: 100%;
+	height: 20px;
+	line-height: 20px;
+	padding: 0 3px;
+	text-align: center;
+	box-sizing: border-box;
+}

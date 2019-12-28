@@ -133,21 +133,17 @@
 
 				hueCtx.lineWidth = 2;
 
-				hueCtx.beginPath();
-				hueCtx.rect(x - (w/2), 2, w, hueCanvas.height - 2);
 				hueCtx.strokeStyle = "rgba(0, 0, 0, 0.5)";
-				hueCtx.stroke();
-				hueCtx.closePath();
+				hueCtx.strokeRect(x - (w/2), 2, w, hueCanvas.height - 2);
 
-				hueCtx.beginPath();
-				hueCtx.rect(x - (w/2) - 1, 1, w, hueCanvas.height - 2);
 				hueCtx.strokeStyle = "rgba(255, 255, 255, 0.9)";
-				hueCtx.stroke();
-				hueCtx.closePath();
+				hueCtx.strokeRect(x - (w/2) - 1, 1, w, hueCanvas.height - 2);
 				
 			}
 
 			function drawHueGradient() {
+				hueCtx.clearRect(0, 0, hueCanvas.width, hueCanvas.height);
+
 				var hues = [
 					"#ff0000",
 					"#ffff00",
@@ -158,13 +154,14 @@
 					"#ff0000"
 				];
 
+				var padding = 4;
 				var hueGrad = colorCtx.createLinearGradient(0, 0, hueCanvas.width, 0);
 				for (var i in hues) {
 					var start = i / (hues.length - 1);
 					hueGrad.addColorStop(start, hues[i]);
 				}
 				hueCtx.fillStyle = hueGrad;
-				hueCtx.fillRect(0, 0, hueCanvas.width, hueCanvas.height);
+				hueCtx.fillRect(padding, padding, hueCanvas.width - padding * 2, hueCanvas.height - padding * 2);
 			}
 
 			colorCanvas.addEventListener('mousemove', function(e) {
