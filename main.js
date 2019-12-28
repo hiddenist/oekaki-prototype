@@ -12,8 +12,8 @@ function Oekaki(setupOptions) {
 			backgroundColor: null
 		},
 		options = { ...defaultOptions },
-		pos = { x: 0, y: 0 },
-		lastPos = { x: 0, y: 0 },
+		// pos = { x: 0, y: 0 },
+		// lastPos = { x: 0, y: 0 },
 		elems = {
 			container: null,
 			page: null,
@@ -22,11 +22,7 @@ function Oekaki(setupOptions) {
 		layers = {},
 		currentLayer,
 		colorPicker,
-		brush = {
-			color: "#000000",
-			size: 2,
-			opacity: 0.75
-		},
+		brush = new Brush("#000000", 2, 0.75),
 		zoom = 1,
 		flags = {
 			drawing: false,
@@ -62,24 +58,21 @@ function Oekaki(setupOptions) {
 			},
 			setColor: {
 				action: function(e) {
-					brush.color = prompt("Enter color (any valid HTML color code)", brush.color);
-					updateBrush();
+					brush.setColor(prompt("Enter color (any valid HTML color code)", brush.getColor()));
 				},
 				label: "Set Color",
 				active: false
 			},
 			setSize: {
 				action: function(e) {
-					brush.size = prompt("Enter brush size (in pixels)", brush.size);
-					updateBrush();
+					brush.setSize(prompt("Enter brush size (in pixels)", brush.getSize()));
 				},
 				label: "Brush Size",
 				active: true
 			},
 			setOpacity: {
 				action: function(e) {
-					brush.opacity = prompt("Enter opacity ", brush.opacity);
-					updateBrush();
+					brush.setOpacity(prompt("Enter opacity (0-100)", brush.getOpacity()));
 				},
 				label: "Set Opacity",
 				active: true
@@ -213,7 +206,7 @@ function Oekaki(setupOptions) {
 			options.backgroundColor = elems.form.background.value;
 
 			if (options.backgroundColor == "black") {
-				brush.color = "#ffffff";
+				brush.setColor("#ffffff");
 			}
 
 			elems.form.parentNode.removeChild(elems.form);
@@ -257,25 +250,22 @@ function Oekaki(setupOptions) {
 		// Has to be set after layer is created
 		colorPicker = new ColorPicker({
 			parentElement: elems.container,
-			color: brush.color,
+			color: brush.getColor(),
 			onChange: function(color) {
 				log("Setting brush color");
-				brush.color = color.toHex();
-				updateBrush();
+				brush.setColor(color.toHex());
 			}
 		});
 
 		// Set up listeners
 		elems.page.addEventListener("mousedown", events.startDrawing);
-		elems.page.addEventListener("mousemove", events.move);
-		elems.page.addEventListener("mouseup", events.stopDrawing);
-		elems.page.addEventListener("mouseout", events.stopDrawing);
+		document.body.addEventListener("mousemove", events.move);
+		document.body.addEventListener("mouseup", events.stopDrawing);
 
 		// touch controls
 		elems.page.addEventListener("touchstart", events.startDrawing);
-		elems.page.addEventListener("touchmove", events.move);
-		elems.page.addEventListener("touchend", events.stopDrawing);
-		elems.page.addEventListener("touchleave", events.stopDrawing);
+		document.body.addEventListener("touchmove", events.move);
+		document.body.addEventListener("touchend", events.stopDrawing);
 		elems.page.addEventListener("touchcancel", events.stopDrawing);
 		
 		window.addEventListener('beforeunload', function (e) {
@@ -294,18 +284,7 @@ function Oekaki(setupOptions) {
 		if (name in layers) {
 			log("Setting active layer: " + name);
 			currentLayer = name;
-			updateBrush();
 		}
-	}
-
-	function updateBrush() {
-		log("Updating brush for current layer");
-		log(brush);
-		var ctx = getCurrentLayer().ctx;
-		ctx.lineCap = 'round';
-		ctx.strokeStyle = brush.color;
-		ctx.lineWidth = brush.size;
-		ctx.globalAlpha = brush.opacity;
 	}
 
 	function addLayer(name, isBg) {
@@ -332,38 +311,19 @@ function Oekaki(setupOptions) {
 		return layer;
 	}
 
-
-	function updatePosition(e) {
-		lastPos.x = pos.x;
-		lastPos.y = pos.y;
-
-		var x, y;
-		if (e.type == 'touchstart' || e.type == 'touchmove' || e.type == 'touchend' || e.type == 'touchcancel') {
-			var touch = e.touches[0] || e.changedTouches[0];
-			var rect = touch.target.getBoundingClientRect();
-			x = touch.clientX - rect.x;
-			y = touch.clientY - rect.y;
-		} else if (e.type == 'mousedown' || e.type == 'mouseup' || e.type == 'mousemove' || e.type == 'mouseover'|| e.type=='mouseout' || e.type=='mouseenter' || e.type=='mouseleave') {
-			x = e.layerX;
-			y = e.layerY;
-		}
-
-		pos.x = x * 1/zoom;
-		pos.y = y * 1/zoom;
-	}
-
 	events.startDrawing = function(e) {
 		e.preventDefault();
 		log("Start drawing");
-		updatePosition(e);
+		brush.setPosition(getEventPosition(e, elems.page));
 		flags.drawing = true;
 	}
 
 	events.move = function(e) {
 		e.preventDefault();
 		if (flags.drawing) {
-			updatePosition(e);
-			draw(lastPos, pos);
+			brush.setPosition(getEventPosition(e, elems.page));
+			brush.draw(getCurrentLayer());
+			setUnsaved();
 		}
 	}
 
@@ -381,16 +341,6 @@ function Oekaki(setupOptions) {
 
 	function getLayer(name) {
 		return layers[name];
-	}
-
-	function draw(from, to) {
-		var layer = getCurrentLayer();
-		layer.ctx.beginPath();
-		layer.ctx.moveTo(from.x, from.y);
-		layer.ctx.lineTo(to.x, to.y);
-		layer.ctx.stroke();
-		layer.ctx.closePath();
-		setUnsaved();
 	}
 
 	function updateTitle() {
@@ -419,7 +369,7 @@ function Oekaki(setupOptions) {
 				layer.ctx.fillStyle = options.backgroundColor;
 				layer.ctx.globalAlpha = 1;
 				layer.ctx.fillRect(0, 0, layer.canvas.width, layer.canvas.height);
-				updateBrush();
+				//updateBrush();
 			} else {
 				layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
 			}
@@ -444,6 +394,100 @@ function Oekaki(setupOptions) {
 	}
 
 	return obj;
+}
+
+function Brush(color, size, opacity) {
+	var brush = this,
+		altColor = null,
+		position = null,
+		path = [];
+
+	brush.draw = function(layer) {
+		layer.ctx.lineCap = 'round';
+		layer.ctx.strokeStyle = brush.getColor();
+
+		// brush glow!
+		layer.ctx.shadowColor = brush.getColor();
+		layer.ctx.shadowBlur = brush.getSize() / 10;
+
+		layer.ctx.lineWidth = brush.getSize();
+		layer.ctx.globalAlpha = brush.getOpacity();
+
+		if (path.length) {
+			var from = path[0];
+			layer.ctx.beginPath();
+			layer.ctx.moveTo(from.x, from.y);
+			layer.ctx.lineTo(position.x, position.y);
+			layer.ctx.stroke();
+			layer.ctx.closePath();
+		}
+	}
+
+	brush.setColor = function(newColor) {
+		color = newColor;
+		return brush;
+	};
+
+	brush.getColor = function() {
+		return color;
+	};
+
+	brush.setAltColor = function(newColor) {
+		altColor = newColor;
+		return brush;
+	};
+
+	brush.getAltColor = function() {
+		return altColor;
+	};
+
+	brush.swapColors = function() {
+		var temp = color;
+		color = altColor;
+		altColor = color;
+		return brush;
+	};
+
+	brush.setSize = function(newSize) {
+		size = newSize;
+		return brush;
+	};
+
+	brush.getSize = function() {
+		return size;
+	};
+
+	brush.setOpacity = function(newOpacity) {
+		opacity = newOpacity;
+		return brush;
+	};
+
+	brush.getOpacity = function() {
+		return opacity;
+	};
+
+	brush.setPosition = function(x, y) {
+		if (typeof x == 'object') {
+			y = x.y;
+			x = x.x;
+		}
+
+		if (!position) {
+			position = {x: null, y: null};
+		} else {
+			path.unshift({...position});
+		}
+
+		position.x = x;
+		position.y = y;
+		return brush;
+	};
+
+	brush.getPosition = function() {
+		return {...position};
+	};
+
+	return brush;
 }
 
 function ColorPicker(setupOptions) {
@@ -545,10 +589,14 @@ function ColorPicker(setupOptions) {
 		drawHueGradient();
 		selectColor(colorFromHex(options.color))	;
 
-		colorCanvas.addEventListener('mousemove', function(e) {
-			if (isClickingColor) {
+		window.addEventListener('mousemove', function(e) {
+			if (isClickingColor && !isClickingHue) {
 				selectColor(getColorFromEvent(e));
-			} else {
+			}
+		});
+
+		colorCanvas.addEventListener('mousemove', function(e) {
+			if (!isClickingHue) {
 				setPreviewColor(getColorFromEvent(e));
 			}
 		});
@@ -567,7 +615,6 @@ function ColorPicker(setupOptions) {
 			selectColor(getColorFromEvent(e));
 		});
 	
-	
 		document.addEventListener('mouseup', function(e) {
 			isClickingColor = false;
 			isClickingHue = false;
@@ -581,15 +628,20 @@ function ColorPicker(setupOptions) {
 			isClickingHue = true;
 		});
 	
+		window.addEventListener('mousemove', function(e) {
+			var newColor = adjustHueFromPosition(e);
+			if (!isClickingColor && isClickingHue) {
+				selectColor(newColor);
+			}
+		});
+
 		hueCanvas.addEventListener('mousemove', function(e) {
 			var newColor = adjustHueFromPosition(e);
-			if (isClickingHue) {
-				selectColor(newColor);
-			} else {
+			if (!isClickingColor && !isClickingHue) {
 				setPreviewColor(newColor);
 			}
 		});
-	
+
 		hueCanvas.addEventListener('mousedown', function(e) {
 			isClickingHue = true;
 		});
@@ -702,7 +754,7 @@ function ColorPicker(setupOptions) {
 	}
 
 	function adjustHueFromPosition(e) {
-		var coords = getEventCoords(e);
+		var coords = getEventPosition(e, hueCanvas);
 		var hue = 360 * coords.x / hueCanvas.width * 2;
 		return new Color(new HSV(hue, previewColor.s, previewColor.v));
 	}
@@ -723,15 +775,8 @@ function ColorPicker(setupOptions) {
 		return new Color(rgb);
 	}
 
-	function getEventCoords(e) {
-		return {
-			x: e.offsetX || e.layerX,
-			y: e.offsetY || e.layerY
-		};
-	}
-
 	function getColorFromEvent(e) {
-		var coords = getEventCoords(e);
+		var coords = getEventPosition(e, colorCanvas);
 		var s = coords.x * 2 / colorCanvas.width * 100;
 		var v = 100 - coords.y * 2 / colorCanvas.height * 100;
 		return new Color(new HSV(previewColor.h, s, v));
@@ -745,6 +790,9 @@ function ColorPicker(setupOptions) {
 		return selectedColor;
 	}
 
+	that.setSelectedColor = selectColor;
+	that.setPreviewColor = setPreviewColor;
+
 	if (options.autoInit) {
 		init();
 	}
@@ -754,9 +802,9 @@ function ColorPicker(setupOptions) {
 
 function HSV(h, s, v) {
 	var that = this;
-	that.h = h;
-	that.s = s;
-	that.v = v;
+	that.h = Math.min(Math.max(0, h), 360);
+	that.s = Math.min(Math.max(0, s), 100);
+	that.v = Math.min(Math.max(0, v), 100);
 	that.type = 'HSV';
 
 	that.toArray = function() {
@@ -768,9 +816,9 @@ function HSV(h, s, v) {
 
 function RGB(r, g, b) {
 	var that = this;
-	that.r = r;
-	that.g = g;
-	that.b = b;
+	that.r = Math.min(Math.max(0, r), 255);
+	that.g = Math.min(Math.max(0, g), 255);
+	that.b = Math.min(Math.max(0, b), 255);
 	that.type = 'RGB';
 
 	that.toArray = function() {
@@ -900,4 +948,33 @@ function log(message) {
 	if (debug) {
 		console.log(message);
 	}
+}
+
+function getEventPosition(e, elem, zoom) {
+	var x, y, eventX, eventY;
+
+	if (!elem) {
+		elem = touch.target;
+	}
+
+	if (!zoom) {
+		zoom = 1;
+	}
+
+	var rect = elem.getBoundingClientRect();
+
+	if (e.type == 'touchstart' || e.type == 'touchmove' || e.type == 'touchend' || e.type == 'touchcancel') {
+		var touch = e.touches[0] || e.changedTouches[0];
+		
+		eventX = touch.clientX;
+		eventY = touch.clientY;
+	} else if (e.type == 'mousedown' || e.type == 'mouseup' || e.type == 'mousemove' || e.type == 'mouseover'|| e.type=='mouseout' || e.type=='mouseenter' || e.type=='mouseleave') {
+		eventX = e.clientX;
+		eventY = e.clientY;
+	}
+
+	x = eventX - rect.x;
+	y = eventY - rect.y;
+
+	return {x: x * 1/zoom, y: y * 1/zoom};
 }
