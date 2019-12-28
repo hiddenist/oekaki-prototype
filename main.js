@@ -252,20 +252,20 @@ function Oekaki(setupOptions) {
 			parentElement: elems.container,
 			color: brush.getColor(),
 			onChange: function(color) {
-				log("Setting brush color");
+				log("Setting brush color " + color.toHex());
 				brush.setColor(color.toHex());
 			}
 		});
 
 		// Set up listeners
 		elems.page.addEventListener("mousedown", events.startDrawing);
-		document.body.addEventListener("mousemove", events.move);
-		document.body.addEventListener("mouseup", events.stopDrawing);
+		window.addEventListener("mousemove", events.move);
+		window.addEventListener("mouseup", events.stopDrawing);
 
 		// touch controls
 		elems.page.addEventListener("touchstart", events.startDrawing);
-		document.body.addEventListener("touchmove", events.move);
-		document.body.addEventListener("touchend", events.stopDrawing);
+		window.addEventListener("touchmove", events.move);
+		window.addEventListener("touchend", events.stopDrawing);
 		elems.page.addEventListener("touchcancel", events.stopDrawing);
 		
 		window.addEventListener('beforeunload', function (e) {
@@ -691,7 +691,6 @@ function ColorPicker(setupOptions) {
 		drawColorDisc(color);
 		drawSelectedHueBox(color);
 
-		log("selectColor")
 		options.onChange(color);
 	}
 
@@ -968,7 +967,7 @@ function getEventPosition(e, elem, zoom) {
 		
 		eventX = touch.clientX;
 		eventY = touch.clientY;
-	} else if (e.type == 'mousedown' || e.type == 'mouseup' || e.type == 'mousemove' || e.type == 'mouseover'|| e.type=='mouseout' || e.type=='mouseenter' || e.type=='mouseleave') {
+	} else {
 		eventX = e.clientX;
 		eventY = e.clientY;
 	}
