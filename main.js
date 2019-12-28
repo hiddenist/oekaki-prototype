@@ -302,6 +302,7 @@ function Oekaki(setupOptions) {
 		log("Updating brush for current layer");
 		log(brush);
 		var ctx = getCurrentLayer().ctx;
+		ctx.lineCap = 'round';
 		ctx.strokeStyle = brush.color;
 		ctx.lineWidth = brush.size;
 		ctx.globalAlpha = brush.opacity;
