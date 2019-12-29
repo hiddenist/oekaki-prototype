@@ -254,6 +254,7 @@ function Oekaki(setupOptions) {
 			onChange: function(color) {
 				log("Setting brush color " + color.toHex());
 				brush.setColor(color.toHex());
+				brush.setOpacity(color.getOpacity());
 			}
 		});
 
@@ -261,6 +262,14 @@ function Oekaki(setupOptions) {
 		elems.page.addEventListener("mousedown", events.startDrawing);
 		window.addEventListener("mousemove", events.move);
 		window.addEventListener("mouseup", events.stopDrawing);
+		elems.page.addEventListener("click", events.click);
+
+		var cursorEvts = [
+			"keydown", "keyup", "keypress", "mouseup", "mousedown", "mousemove"
+		];
+		for (var i in cursorEvts) {
+			elems.page.addEventListener(cursorEvts[i], events.setCursor);
+		}
 
 		// touch controls
 		elems.page.addEventListener("touchstart", events.startDrawing);
@@ -324,7 +333,30 @@ function Oekaki(setupOptions) {
 			brush.setPosition(getEventPosition(e, elems.page));
 			brush.draw(getCurrentLayer());
 			setUnsaved();
+		} else if (e.altKey) {
+			var pos = getEventPosition(e, elems.page);
+			var color = colorPicker.eyeDropper(pos.x, pos.y, getCurrentLayer().ctx);
+			colorPicker.setPreviewColor(color);
 		}
+	}
+
+	events.click = function(e) {
+		// option/alt
+		if (e.altKey) {
+			var pos = getEventPosition(e, elems.page);
+			var color = colorPicker.eyeDropper(pos.x, pos.y, getCurrentLayer().ctx);
+			colorPicker.setSelectedColor(color);
+		}
+	};
+	
+	events.setCursor = function(e) {
+		var cursor = '';
+		if (e.altKey) {
+			cursor = 'crosshair';
+		} else if (flags.drawing) {
+			cursor = 'none';
+		}
+		elems.page.style.cursor = cursor;
 	}
 
 	events.stopDrawing = function(e) {
@@ -411,7 +443,7 @@ function Brush(color, size, opacity) {
 		layer.ctx.shadowBlur = brush.getSize() / 10;
 
 		layer.ctx.lineWidth = brush.getSize();
-		layer.ctx.globalAlpha = brush.getOpacity();
+		layer.ctx.globalAlpha = brush.getOpacity() / 100;
 
 		if (path.length) {
 			var from = path[0];
@@ -789,6 +821,12 @@ function ColorPicker(setupOptions) {
 		return selectedColor;
 	}
 
+	that.eyeDropper = function(x, y, ctx) {
+		var data = ctx.getImageData(x, y, 1, 1).data;
+		log(data);
+		return new Color(new RGB(data[0], data[1], data[2]), data[3] / 255);
+	}
+
 	that.setSelectedColor = selectColor;
 	that.setPreviewColor = setPreviewColor;
 
@@ -926,6 +964,14 @@ function Color(rgbOrHsv, a) {
 
 	that.getHueColor = function() {
 		return new Color(new HSV(that.h, 100, 100));
+	}
+
+	that.getAlpha = function() {
+		return that.a;
+	}
+
+	that.getOpacity = function() {
+		return that.a * 100;
 	}
 
 	return that;
