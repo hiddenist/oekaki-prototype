@@ -2,18 +2,97 @@ body {
 	font-family: sans-serif;
 	margin: 0;
 	padding: 0;
-	background-color: rgb(104, 144, 231);
+	background-color: #444;
 }
 
 .oekaki-container {
-	position: relative;
 	width: 100vw;
-	padding-top: 100px;
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	align-items: normal;
+}
+
+.oekaki-rows {
+	display: flex;
+	flex-direction: row;
+	flex-grow: 1;
+}
+
+.oekaki-toolbar {
+	align-self: stretch;
+	flex-grow: 0;
+	display: flex;
+	flex-direction: column;
+	padding: 5px;
+	background-color: #222;
+}
+
+.oekaki-tool {
+	cursor: pointer;
+	padding: 5px 10px;
+}
+
+.oekaki-tool-active {
+	color: white;
+	text-shadow: 1px 1px 1px rgba(0,0,0,0.3);
+	background-color: #444;
+	border-radius: 5px;
+}
+
+.oekaki-toolbar > div {
+	width: 80px;
+}
+
+.oekaki-titlebar {
+	align-self: stretch;
+	flex-grow: 0;
+	padding: 15px 10px;
+	background-color: rgb(95, 65, 155);
+	border-bottom: 1px solid black;
+	font-size: 20px;
+	text-align: center;
+}
+
+.oekaki-main {
+	align-self: stretch;
+	flex-grow: 2;
+	display: flex;
+}
+
+.oekaki-page {
+	align-self: center;
+	margin: auto;
+}
+
+.oekaki-colors {
+	position: relative;
+	margin: 5px;
+}
+
+.oekaki-color {
+	width: 50px;
+	height: 50px;
+	border: 1px solid black;
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	z-index: 1;
+	box-shadow: 3px 3px 2px rgba(0, 0, 0, 0.1);
+}
+
+.oekaki-color-alt {
+	top: 25px;
+	left: 25px;
+}
+
+.oekaki-color-active {
+	z-index: 2;
 }
 
 .oekaki-create-form {
 	display: block;
-	margin: 0 auto;
+	margin: auto;
 	width: 400px;
 	max-width: 100%;
 }
@@ -51,26 +130,18 @@ body {
 	font-size: 30px;
 }
 
-.oekaki-page {
-	margin: 0 auto;
-	border: 1px solid rgba(0, 0, 0, 0.5);
-	box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+.oekaki-transbg {
 	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='25' height='25' viewBox='0 0 8 8'%3E%3Cg fill='%23acacac' fill-opacity='0.3'%3E%3Cpath fill-rule='evenodd' d='M0 0h4v4H0V0zm4 4h4v4H4V4z'/%3E%3C/g%3E%3C/svg%3E");
-	position: relative;
 	background-color: white;
 }
 
-.oekaki-buttons {
-	background-color: rgb(31, 80, 185);
-	padding: 10px;
-	box-sizing: border-box;
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
+.oekaki-page {
+	border: 1px solid rgba(0, 0, 0, 0.5);
+	box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+	position: relative;
 }
 
-.oekaki-buttons .oekaki-button {
+.oekaki-button {
 	border: 1px solid #aaa;
 	border-left: 0;
 	background-color: #fff;
@@ -80,34 +151,20 @@ body {
 	cursor: pointer;
 }
 
-.oekaki-buttons .oekaki-button:hover {
+.oekaki-button:hover {
 	background-color: #f5f5f5;
 	box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3) inset;
 }
 
-.oekaki-buttons .oekaki-button:last-child {
-	border-radius: 0 3px 3px 0;
-}
-
-.oekaki-buttons .oekaki-button:first-child {
-	border-radius: 3px 0 0 3px;
-	border-left: 1px;
-}
-
-.oekaki-buttons .oekaki-button:first-child:last-child {
-	border-radius: 3px;
-}
-
-.oekaki-buttons .oekaki-button-save {
-	float: right;
-	background-color: rgb(220, 78, 255);
+.oekaki-button-save {
+	background-color: rgb(140, 78, 255);
 	color: white;
 	border: 1px solid rgba(0, 0, 0, 0.5);
 	border-radius: 3px;
 }
-.oekaki-buttons .oekaki-button-save:hover {
-	float: right;
-	background-color: rgb(194, 52, 230);
+
+.oekaki-button-save:hover {
+	background-color: rgb(129, 52, 230);
 	color: white;
 	border: 1px solid rgba(0, 0, 0, 0.5);
 	border-radius: 3px;
@@ -116,7 +173,7 @@ body {
 
 .color-picker {
 	background-color: rgba(0, 0, 0, 0.5);
-	border: 1px solid #rgba(0, 0, 0, 1);
+	border: 1px solid rgba(0, 0, 0, 1);
 	/* position: absolute;
 	top: 0;
 	left: 0; */

@@ -17,7 +17,8 @@ function Oekaki(setupOptions) {
 		elems = {
 			container: null,
 			page: null,
-			buttons: null
+			toolbar: null,
+			titlebar: null
 		},
 		layers = {},
 		currentLayer,
@@ -27,7 +28,8 @@ function Oekaki(setupOptions) {
 		flags = {
 			drawing: false,
 			initialized: false,
-			unsaved: false
+			unsaved: false,
+			eyedropper: false
 		},
 		events = {},
 		buttons = {
@@ -46,14 +48,6 @@ function Oekaki(setupOptions) {
 					updateTitle();
 				},
 				label: "Rename",
-				active: true
-			},
-			save: {
-				action: function(e) {
-					download(options.name + ".png");
-					setSaved();
-				},
-				label: "Save",
 				active: true
 			},
 			setColor: {
@@ -75,6 +69,14 @@ function Oekaki(setupOptions) {
 					brush.setOpacity(prompt("Enter opacity (0-100)", brush.getOpacity()));
 				},
 				label: "Set Opacity",
+				active: true
+			},
+			save: {
+				action: function(e) {
+					download(options.name + ".png");
+					setSaved();
+				},
+				label: "Save",
 				active: true
 			},
 		};
@@ -219,18 +221,27 @@ function Oekaki(setupOptions) {
 	function launch() {
 		log("Launching");
 		log(options);
+
+		elems.titlebar = document.createElement('div');
+		elems.titlebar.className = "oekaki-titlebar";
+		elems.container.appendChild(elems.titlebar);
+
+		var rows = document.createElement('div');
+		rows.className = 'oekaki-rows';
+		elems.container.appendChild(rows);
+
+		elems.toolbar = document.createElement('div');
+		elems.toolbar.className = 'oekaki-toolbar';
+		rows.appendChild(elems.toolbar);
+
 		elems.page = document.createElement('div');
-		elems.container.appendChild(elems.page);
-		elems.page.className = "oekaki-page";
+		rows.appendChild(elems.page);
+		elems.page.className = "oekaki-page oekaki-transbg";
 		elems.page.style.width = options.width + "px";
 		elems.page.style.height = options.height + "px";
 
 		document.originalTitle = document.title;
 		updateTitle();
-
-		elems.buttons = document.createElement('div');
-		elems.buttons.className = "oekaki-buttons";
-		elems.container.appendChild(elems.buttons);
 
 		for (var btnName in buttons) {
 			if (!buttons[btnName].active) {
@@ -240,7 +251,7 @@ function Oekaki(setupOptions) {
 			btn.className = "oekaki-button oekaki-button-" + btnName;
 			btn.innerHTML = buttons[btnName].label;
 			btn.addEventListener("click", buttons[btnName].action);
-			elems.buttons.appendChild(btn);
+			elems.toolbar.appendChild(btn);
 		}
 
 		// future: Allow several layers
@@ -249,7 +260,7 @@ function Oekaki(setupOptions) {
 
 		// Has to be set after layer is created
 		colorPicker = new ColorPicker({
-			parentElement: elems.container,
+			parentElement: document.body,
 			color: brush.getColor(),
 			onChange: function(color) {
 				log("Setting brush color " + color.toHex());
@@ -262,7 +273,9 @@ function Oekaki(setupOptions) {
 		elems.page.addEventListener("mousedown", events.startDrawing);
 		window.addEventListener("mousemove", events.move);
 		window.addEventListener("mouseup", events.stopDrawing);
-		elems.page.addEventListener("click", events.click);
+
+		window.addEventListener("keydown", events.keyDown);
+		window.addEventListener("keyup", events.keyUp);
 
 		var cursorEvts = [
 			"keydown", "keyup", "keypress", "mouseup", "mousedown", "mousemove"
@@ -273,7 +286,7 @@ function Oekaki(setupOptions) {
 
 		// touch controls
 		elems.page.addEventListener("touchstart", events.startDrawing);
-		window.addEventListener("touchmove", events.move);
+		window.addEventListener("touchmove", events.draw);
 		window.addEventListener("touchend", events.stopDrawing);
 		elems.page.addEventListener("touchcancel", events.stopDrawing);
 		
@@ -320,34 +333,69 @@ function Oekaki(setupOptions) {
 		return layer;
 	}
 
-	events.startDrawing = function(e) {
-		e.preventDefault();
-		log("Start drawing");
-		brush.setPosition(getEventPosition(e, elems.page));
-		flags.drawing = true;
+	function canDraw() {
+		var canDraw = !flags.eyedropper;
+		return canDraw;
 	}
 
-	events.move = function(e) {
-		e.preventDefault();
-		if (flags.drawing) {
+	events.startDrawing = function(e) {
+		if (canDraw()) {
+			e.preventDefault();
+			log("Start drawing");
 			brush.setPosition(getEventPosition(e, elems.page));
-			brush.draw(getCurrentLayer());
-			setUnsaved();
-		} else if (e.altKey) {
+			flags.drawing = true;
+		}
+
+		if (flags.eyedropper) {
+			events.eyeDropper(e);
+		}
+	}
+
+	events.keyDown = function(e) {
+		if (e.altKey) {
+			flags.eyedropper = true;
+		}
+	};
+
+	events.keyUp = function(e) {
+		flags.eyedropper = false;
+	};
+
+	events.eyeDropperPreview = function(e) {
+		// option/alt
+		if (flags.eyedropper) {
+			e.preventDefault();
 			var pos = getEventPosition(e, elems.page);
 			var color = colorPicker.eyeDropper(pos.x, pos.y, getCurrentLayer().ctx);
 			colorPicker.setPreviewColor(color);
+			flags.blockDrawing = true;
 		}
 	}
 
-	events.click = function(e) {
+	events.eyeDropper = function(e) {
 		// option/alt
-		if (e.altKey) {
+		if (flags.eyedropper) {
+			e.preventDefault();
 			var pos = getEventPosition(e, elems.page);
 			var color = colorPicker.eyeDropper(pos.x, pos.y, getCurrentLayer().ctx);
 			colorPicker.setSelectedColor(color);
+			flags.blockDrawing = true;
 		}
 	};
+
+	events.move = function(e) {
+		e.preventDefault();
+
+		if (flags.eyedropper) {
+			events.eyeDropperPreview(e);
+		}
+
+		if (flags.drawing && canDraw()) {
+			brush.setPosition(getEventPosition(e, elems.page));
+			brush.draw(getCurrentLayer());
+			setUnsaved();
+		}
+	}
 	
 	events.setCursor = function(e) {
 		var cursor = '';
@@ -365,6 +413,7 @@ function Oekaki(setupOptions) {
 			log("Stop drawing");
 		}
 		flags.drawing = false;
+		flags.blockDrawing = false;
 	}
 
 	function getCurrentLayer() {
@@ -378,6 +427,7 @@ function Oekaki(setupOptions) {
 	function updateTitle() {
 		document.title = '"' + options.name + '" - ' + document.originalTitle;
 		document.cleanTitle = document.title;
+		elems.titlebar.textContent = '"' + options.name + '"';
 	}
 
 	function setUnsaved() {
@@ -822,8 +872,7 @@ function ColorPicker(setupOptions) {
 	}
 
 	that.eyeDropper = function(x, y, ctx) {
-		var data = ctx.getImageData(x, y, 1, 1).data;
-		log(data);
+		var data = ctx.getImageData(x, y, 1, 1).data;	
 		return new Color(new RGB(data[0], data[1], data[2]), data[3] / 255);
 	}
 
