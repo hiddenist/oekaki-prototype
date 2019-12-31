@@ -288,11 +288,16 @@ function Oekaki(setupOptions) {
 	}
 
 	function initPage(parent) {
+		var pageContainer = document.createElement('div');
+		pageContainer.className = 'oekaki-page-container';
+
 		elems.page = document.createElement('div');
 		elems.page.className = "oekaki-page oekaki-transbg";
 		elems.page.style.width = options.width + "px";
 		elems.page.style.height = options.height + "px";
-		parent.appendChild(elems.page);
+
+		pageContainer.appendChild(elems.page);
+		parent.appendChild(pageContainer);
 
 		var bg = addLayer('Background', true);
 		clear();
@@ -585,7 +590,7 @@ function Brush(color, size, opacity) {
 
 	brush.draw = function(layer) {
 		layer.ctx.lineCap = 'round';
-		layer.ctx.strokeStyle = isPrimColor? brush.getColor() : brush.getAltColor();
+		layer.ctx.strokeStyle = brush.getColor();
 
 		// brush glow!
 		layer.ctx.shadowColor = brush.getColor();
@@ -613,8 +618,12 @@ function Brush(color, size, opacity) {
 		return brush;
 	};
 
-	brush.getColor = function() {
+	brush.getPrimColor = function() {
 		return color;
+	};
+
+	brush.getColor = function() {
+		return brush.isPrimColor()? brush.getPrimColor() : brush.getAltColor() ;
 	};
 
 	brush.setPrimColorFlag = function(bool) {

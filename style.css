@@ -28,6 +28,31 @@ body {
 	background-color: #222;
 }
 
+@media (max-width: 800px) {
+	.oekaki-toolbar {
+		overflow: hidden;
+		max-width: 10px;
+		transition: max-width 0.3s 0.1s;
+	}
+
+	.oekaki-toolbar > * {
+		opacity: 0;
+		transition: opacity 0.3s;
+	}
+
+	.oekaki-toolbar:hover {
+		max-width: 100px;
+		overflow: visible;
+		transition: max-width 0.3s;
+	}
+
+	.oekaki-toolbar:hover > * {
+		opacity: 1;
+		transition: opacity 0.3s 0.2s;
+	}
+
+}
+
 .oekaki-tool {
 	cursor: pointer;
 	padding: 5px 10px;
@@ -58,6 +83,13 @@ body {
 	align-self: stretch;
 	flex-grow: 2;
 	display: flex;
+}
+
+.oekaki-page-container {
+	align-self: stretch;
+	flex-grow: 2;
+	display: flex;
+	overflow: auto;
 }
 
 .oekaki-page {
@@ -160,7 +192,7 @@ body {
 }
 
 .oekaki-page {
-	border: 1px solid rgba(0, 0, 0, 0.5);
+	border: 1px solid #000000;
 	box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
 	position: relative;
 }
