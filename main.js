@@ -480,7 +480,7 @@ function Oekaki(setupOptions) {
 	}
 
 	function draw(e) {
-		brush.setPosition(getEventPosition(e, elems.page, zoom));
+		brush.addToPath(getEventPositions(e, elems.page, zoom));
 		clearWorkingContext();
 		brush.draw(workingContext);
 		setUnsaved();
@@ -501,7 +501,7 @@ function Oekaki(setupOptions) {
 			e.preventDefault();
 			log("Start drawing");
 
-			brush.setPosition(getEventPosition(e, elems.page, zoom));
+			brush.addToPath(getEventPositions(e, elems.page, zoom));
 			flags.drawing = true;
 		}
 
@@ -713,6 +713,7 @@ function Brush(color, size, opacity) {
 			context.stroke();
 			context.closePath();
 		}
+		return brush;
 	}
 
 	brush.getStrokeInfo = function() {
@@ -792,6 +793,14 @@ function Brush(color, size, opacity) {
 
 	brush.getOpacity = function() {
 		return opacity;
+	};
+	
+	brush.addToPath = function(positions) {
+		for (var i = 0; i < positions.length; ++i) {
+			brush.setPosition(positions[i].x, positions[i].y);
+		}
+
+		return brush;
 	};
 
 	brush.setPosition = function(x, y) {
@@ -1389,7 +1398,12 @@ function log(message) {
 }
 
 function getEventPosition(e, elem, zoom) {
-	var x, y, eventX, eventY;
+	var events = getEventPositions(e, elem, zoom);
+	return events[0];
+}
+
+function getEventPositions(e, elem, zoom) {
+	var events = [];
 
 	if (!elem) {
 		elem = touch.target;
@@ -1401,18 +1415,22 @@ function getEventPosition(e, elem, zoom) {
 
 	var rect = elem.getBoundingClientRect();
 
-	if (e.type == 'touchstart' || e.type == 'touchmove' || e.type == 'touchend' || e.type == 'touchcancel') {
-		var touch = e.touches[0] || e.changedTouches[0];
+	var getPosition = function(clientX, clientY) {
+		var x = clientX - rect.x,
+			y = clientY - rect.y;
 		
-		eventX = touch.clientX;
-		eventY = touch.clientY;
-	} else {
-		eventX = e.clientX;
-		eventY = e.clientY;
+		return { x: x * 1/zoom, y: y * 1/zoom };
 	}
 
-	x = eventX - rect.x;
-	y = eventY - rect.y;
+	if (e.type == 'touchstart' || e.type == 'touchmove' || e.type == 'touchend' || e.type == 'touchcancel') {
+		var touches = e.touches || e.changedTouches;
+		for (var i = 0; i < touches.length; ++i) {
+			var touch = touches[i];
+			events.push(getPosition(touch.clientX, touch.clientY));
+		}
+	} else {
+		events.push(getPosition(e.clientX, e.clientY));
+	}
 
-	return {x: x * 1/zoom, y: y * 1/zoom};
+	return events;
 }
