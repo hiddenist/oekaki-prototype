@@ -18,12 +18,18 @@ function Oekaki(setupOptions) {
 			container: null,
 			page: null,
 			toolbar: null,
-			titlebar: null
+			titlebar: null,
+			colors: {
+				foreground: null,
+				background: null,
+				active: null
+			}
 		},
 		layers = {},
 		currentLayer,
 		colorPicker,
-		brush = new Brush("#000000", 2, 0.75),
+		altColorPicker,
+		brush = new Brush("#000000", 2, 100),
 		zoom = 1,
 		flags = {
 			drawing: false,
@@ -59,14 +65,20 @@ function Oekaki(setupOptions) {
 			},
 			setSize: {
 				action: function(e) {
-					brush.setSize(prompt("Enter brush size (in pixels)", brush.getSize()));
+					var size = prompt("Enter brush size (in pixels)", brush.getSize());
+					if (size) {
+						brush.setSize(size);
+					}
 				},
 				label: "Brush Size",
 				active: true
 			},
 			setOpacity: {
 				action: function(e) {
-					brush.setOpacity(prompt("Enter opacity (0-100)", brush.getOpacity()));
+					var opacity = prompt("Enter opacity (0-100)", brush.getOpacity());
+					if (opacity) {
+						brush.setOpacity(opacity);
+					}
 				},
 				label: "Set Opacity",
 				active: true
@@ -209,6 +221,9 @@ function Oekaki(setupOptions) {
 
 			if (options.backgroundColor == "black") {
 				brush.setColor("#ffffff");
+				brush.setAltColor("#000000");
+			} else {
+				brush.setAltColor("#ffffff");
 			}
 
 			elems.form.parentNode.removeChild(elems.form);
@@ -234,6 +249,7 @@ function Oekaki(setupOptions) {
 		elems.toolbar.className = 'oekaki-toolbar';
 		rows.appendChild(elems.toolbar);
 
+
 		elems.page = document.createElement('div');
 		rows.appendChild(elems.page);
 		elems.page.className = "oekaki-page oekaki-transbg";
@@ -258,6 +274,46 @@ function Oekaki(setupOptions) {
 		var bg = addLayer('Background', true);
 		clear();
 
+		var colors = document.createElement('div');
+		colors.className = 'oekaki-colors';
+		elems.colors.foreground = document.createElement('div');
+		elems.colors.foreground.baseClasses = 'oekaki-color oekaki-color-primary';
+		elems.colors.foreground.isPrim = true;
+		colors.appendChild(elems.colors.foreground);
+		elems.colors.background = document.createElement('div');
+		elems.colors.background.baseClasses = 'oekaki-color oekaki-color-alt';
+		elems.colors.background.isPrim = false;
+		colors.appendChild(elems.colors.background);
+		elems.toolbar.appendChild(colors);
+		elems.colors.active = elems.colors.foreground;
+
+		elems.colors.background.otherColor = elems.colors.foreground;
+		elems.colors.foreground.otherColor = elems.colors.background;
+
+		var setColorActive = function(color, isActive) {
+			color.className = color.baseClasses
+			if (isActive) {
+				color.className += ' oekaki-color-active';
+				brush.setPrimColorFlag(color.isPrim);
+				elems.colors.active = color;
+			}
+			color.isActive = isActive;
+		};
+
+		var clickColor = function(e) {
+			e.preventDefault();
+			var isActive = e.target.isActive;
+			setColorActive(e.target, !isActive);
+			setColorActive(e.target.otherColor, isActive);
+		};
+
+		setColorActive(elems.colors.foreground, true);
+		setColorActive(elems.colors.background, false);
+
+		elems.colors.foreground.addEventListener('click', clickColor);
+		elems.colors.background.addEventListener('click', clickColor);
+
+
 		// Has to be set after layer is created
 		colorPicker = new ColorPicker({
 			parentElement: document.body,
@@ -265,7 +321,19 @@ function Oekaki(setupOptions) {
 			onChange: function(color) {
 				log("Setting brush color " + color.toHex());
 				brush.setColor(color.toHex());
-				brush.setOpacity(color.getOpacity());
+				// brush.setOpacity(color.getOpacity());
+				elems.colors.foreground.style.backgroundColor = color.toString();
+			}
+		});
+
+		altColorPicker = new ColorPicker({
+			parentElement: document.body,
+			color: brush.getAltColor(),
+			onChange: function(color) {
+				log("Setting brush alt color " + color.toHex());
+				brush.setAltColor(color.toHex());
+				// brush.setOpacity(color.getOpacity());
+				elems.colors.background.style.backgroundColor = color.toString();
 			}
 		});
 
@@ -482,11 +550,12 @@ function Brush(color, size, opacity) {
 	var brush = this,
 		altColor = null,
 		position = null,
+		isPrimColor = true,
 		path = [];
 
 	brush.draw = function(layer) {
 		layer.ctx.lineCap = 'round';
-		layer.ctx.strokeStyle = brush.getColor();
+		layer.ctx.strokeStyle = isPrimColor? brush.getColor() : brush.getAltColor();
 
 		// brush glow!
 		layer.ctx.shadowColor = brush.getColor();
@@ -512,6 +581,15 @@ function Brush(color, size, opacity) {
 
 	brush.getColor = function() {
 		return color;
+	};
+
+	brush.setPrimColorFlag = function(bool) {
+		isPrimColor = bool;
+		return brush;
+	};
+
+	brush.isPrimColor = function(bool) {
+		return isPrimColor;
 	};
 
 	brush.setAltColor = function(newColor) {
