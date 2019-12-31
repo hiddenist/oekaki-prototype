@@ -323,6 +323,7 @@ function Oekaki(setupOptions) {
 		addLayer('Background', true);
 
 		workingCanvas = document.createElement('canvas');
+		workingCanvas.className = 'oekaki-working-canvas';
 		workingCanvas.width = options.width;
 		workingCanvas.height = options.height;
 		workingContext = workingCanvas.getContext('2d');
@@ -401,7 +402,7 @@ function Oekaki(setupOptions) {
 
 	function initListeners() {
 		// Set up listeners
-		elems.page.addEventListener("mousedown", events.startDrawing);
+		workingCanvas.addEventListener("mousedown", events.startDrawing);
 		window.addEventListener("mousemove", events.move);
 		window.addEventListener("mouseup", events.stopDrawing);
 
@@ -413,14 +414,14 @@ function Oekaki(setupOptions) {
 			"keydown", "keyup", "keypress", "mouseup", "mousedown", "mousemove"
 		];
 		for (var i in cursorEvts) {
-			elems.page.addEventListener(cursorEvts[i], events.setCursor);
+			workingCanvas.addEventListener(cursorEvts[i], events.setCursor);
 		}
 
 		// touch controls
-		elems.page.addEventListener("touchstart", events.startDrawing);
-		elems.page.addEventListener("touchmove", events.draw);
-		elems.page.addEventListener("touchend", events.stopDrawing);
-		elems.page.addEventListener("touchcancel", events.stopDrawing);
+		workingCanvas.addEventListener("touchstart", events.startDrawing);
+		workingCanvas.addEventListener("touchmove", events.draw);
+		workingCanvas.addEventListener("touchend", events.stopDrawing);
+		workingCanvas.addEventListener("touchcancel", events.stopDrawing);
 		
 		window.addEventListener('beforeunload', function (e) {
 			if (flags.unsaved) {
