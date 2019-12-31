@@ -418,8 +418,8 @@ function Oekaki(setupOptions) {
 
 		// touch controls
 		elems.page.addEventListener("touchstart", events.startDrawing);
-		window.addEventListener("touchmove", events.draw);
-		window.addEventListener("touchend", events.stopDrawing);
+		elems.container.addEventListener("touchmove", events.draw);
+		elems.page.addEventListener("touchend", events.stopDrawing);
 		elems.page.addEventListener("touchcancel", events.stopDrawing);
 		
 		window.addEventListener('beforeunload', function (e) {
