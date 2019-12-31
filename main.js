@@ -479,6 +479,13 @@ function Oekaki(setupOptions) {
 		workingContext.clearRect(0, 0, workingCanvas.width, workingCanvas.height);
 	}
 
+	function draw(e) {
+		brush.setPosition(getEventPosition(e, elems.page, zoom));
+		clearWorkingContext();
+		brush.draw(workingContext);
+		setUnsaved();
+	}
+
 	function redraw() {
 		// clear all layers
 		// draw history state
@@ -573,10 +580,7 @@ function Oekaki(setupOptions) {
 		}
 
 		if (flags.drawing && canDraw()) {
-			brush.setPosition(getEventPosition(e, elems.page, zoom));
-			clearWorkingContext();
-			brush.draw(workingContext);
-			setUnsaved();
+			draw(e);
 		}
 	}
 	
@@ -595,6 +599,9 @@ function Oekaki(setupOptions) {
 		if (flags.drawing) {
 			log("Stop drawing");
 			redoHistory = [];
+			if (brush.isDot()) {
+				draw(e);
+			}
 			var stroke = brush.clearPath();
 			history.push({
 				layer: getCurrentLayer(),
@@ -686,12 +693,8 @@ function Brush(color, size, opacity) {
 		context.lineCap = 'round';
 		context.lineJoin = 'round';
 		context.strokeStyle = strokeInfo.color;
-
-		//brush glow!
-		// context.shadowColor = strokeInfo.color;
-		// context.shadowBlur = strokeInfo.size / 10;
-
 		context.lineWidth = strokeInfo.size;
+		context.fillStyle = '';
 		context.globalAlpha = strokeInfo.opacity / 100;
 
 		if (strokeInfo.path.length > 1) {
@@ -719,6 +722,10 @@ function Brush(color, size, opacity) {
 			size: brush.getSize(),
 			opacity: brush.getOpacity()
 		};
+	};
+
+	brush.isDot = function() {
+		return path.length === 1;
 	};
 
 	brush.clearPath = function() {
