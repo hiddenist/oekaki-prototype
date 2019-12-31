@@ -40,6 +40,7 @@ function Oekaki(setupOptions) {
 		workingCanvas,
 		workingContext,
 		history = [],
+		redoHistory = [],
 		brush = new Brush("#000000", 2, 100),
 		zoom = 1,
 		flags = {
@@ -57,6 +58,20 @@ function Oekaki(setupOptions) {
 					}
 				},
 				label: "Clear",
+				active: true
+			},
+			undo: {
+				action: function(e) {
+					events.undo(e);
+				},
+				label: "Undo - Z",
+				active: true
+			},
+			redo: {
+				action: function(e) {
+					events.redo(e);
+				},
+				label: "Redo - ⇧Z",
 				active: true
 			},
 			rename: {
@@ -464,12 +479,21 @@ function Oekaki(setupOptions) {
 		workingContext.clearRect(0, 0, workingCanvas.width, workingCanvas.height);
 	}
 
+	function redraw() {
+		// clear all layers
+		// draw history state
+		clear();
+		for (var i = 0; i < history.length; ++i) {
+			var state = history[i];
+			brush.drawPath(state.layer.ctx, state.stroke);
+		}
+	}
+
 	events.startDrawing = function(e) {
 		if (canDraw()) {
 			e.preventDefault();
 			log("Start drawing");
 
-			commitWorkingContext();
 			brush.setPosition(getEventPosition(e, elems.page, zoom));
 			flags.drawing = true;
 		}
@@ -481,21 +505,21 @@ function Oekaki(setupOptions) {
 
 	events.undo = function(e) {
 		e.preventDefault();
-		if (redoHistory.length < 1 && history.length > 0) {
+		if (history.length > 0) {
 			e.preventDefault();
-			var stroke = history.pop();
-			log(stroke);
+			var state = history.pop();
 			clearWorkingContext();
-			redoHistory.push(stroke);
+			redoHistory.push(state);
+			redraw();
 		}
 	};
 
 	events.redo = function(e) {
 		e.preventDefault();
 		if (redoHistory.length) {
-			var stroke = redoHistory.pop();
-			brush.drawPath(workingContext, stroke);
-			history.push(stroke);
+			var state = redoHistory.pop();
+			brush.drawPath(state.layer.ctx, state.stroke);
+			history.push(state);
 		}
 	};
 
@@ -571,7 +595,12 @@ function Oekaki(setupOptions) {
 		if (flags.drawing) {
 			log("Stop drawing");
 			redoHistory = [];
-			history.push(brush.clearPath());
+			var stroke = brush.clearPath();
+			history.push({
+				layer: getCurrentLayer(),
+				stroke: stroke
+			});
+			commitWorkingContext();
 		}
 		flags.drawing = false;
 		flags.blockDrawing = false;
@@ -658,9 +687,9 @@ function Brush(color, size, opacity) {
 		context.lineJoin = 'round';
 		context.strokeStyle = strokeInfo.color;
 
-		// brush glow!
-		context.shadowColor = strokeInfo.color;
-		context.shadowBlur = strokeInfo.size / 10;
+		//brush glow!
+		// context.shadowColor = strokeInfo.color;
+		// context.shadowBlur = strokeInfo.size / 10;
 
 		context.lineWidth = strokeInfo.size;
 		context.globalAlpha = strokeInfo.opacity / 100;
