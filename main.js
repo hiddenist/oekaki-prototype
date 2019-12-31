@@ -418,7 +418,7 @@ function Oekaki(setupOptions) {
 
 		// touch controls
 		elems.page.addEventListener("touchstart", events.startDrawing);
-		elems.container.addEventListener("touchmove", events.draw);
+		elems.page.addEventListener("touchmove", events.draw);
 		elems.page.addEventListener("touchend", events.stopDrawing);
 		elems.page.addEventListener("touchcancel", events.stopDrawing);
 		
@@ -1423,11 +1423,14 @@ function getEventPositions(e, elem, zoom) {
 	}
 
 	if (e.type == 'touchstart' || e.type == 'touchmove' || e.type == 'touchend' || e.type == 'touchcancel') {
-		var touches = e.touches || e.changedTouches;
-		for (var i = 0; i < touches.length; ++i) {
-			var touch = touches[i];
-			events.push(getPosition(touch.clientX, touch.clientY));
-		}
+		var touch = e.touches[0] || e.changedTouches[0];
+
+		// for (var i = 0; i < touches.length; ++i) {
+		// 	var touch = touches[i];
+		// 	events.push(getPosition(touch.clientX, touch.clientY));
+		// }
+
+		events.push(getPosition(touch.clientX, touch.clientY));
 	} else {
 		events.push(getPosition(e.clientX, e.clientY));
 	}
