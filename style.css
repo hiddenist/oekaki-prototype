@@ -95,6 +95,12 @@ body {
 .oekaki-page {
 	align-self: center;
 	margin: auto;
+	position: absolute;
+}
+.oekaki-page > canvas {
+	position: absolute;
+	top: 0;
+	left: 0;
 }
 
 .oekaki-colors {

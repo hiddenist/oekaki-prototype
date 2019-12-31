@@ -37,6 +37,9 @@ function Oekaki(setupOptions) {
 		},
 		layers = {},
 		currentLayer,
+		workingCanvas,
+		workingContext,
+		history = [],
 		brush = new Brush("#000000", 2, 100),
 		zoom = 1,
 		flags = {
@@ -58,8 +61,11 @@ function Oekaki(setupOptions) {
 			},
 			rename: {
 				action: function(e) {
-					options.name = prompt("Enter drawing name", options.name);
-					updateTitle();
+					var name = prompt("Enter drawing name", options.name);
+					if (name) {
+						options.name = name;
+						updateTitle();
+					}
 				},
 				label: "Rename",
 				active: true
@@ -299,7 +305,14 @@ function Oekaki(setupOptions) {
 		pageContainer.appendChild(elems.page);
 		parent.appendChild(pageContainer);
 
-		var bg = addLayer('Background', true);
+		addLayer('Background', true);
+
+		workingCanvas = document.createElement('canvas');
+		workingCanvas.width = options.width;
+		workingCanvas.height = options.height;
+		workingContext = workingCanvas.getContext('2d');
+		elems.page.appendChild(workingCanvas);
+
 		clear();
 	}
 
@@ -379,6 +392,7 @@ function Oekaki(setupOptions) {
 
 		window.addEventListener("keydown", events.keyDown);
 		window.addEventListener("keyup", events.keyUp);
+		window.addEventListener("keypress", events.keyPress);
 
 		var cursorEvts = [
 			"keydown", "keyup", "keypress", "mouseup", "mousedown", "mousemove"
@@ -419,7 +433,7 @@ function Oekaki(setupOptions) {
 			showMessage('A layer named "' + name + '" already exists');
 			return;
 		}
-
+		
 		var canvas = document.createElement('canvas');
 		canvas.width = options.width;
 		canvas.height = options.height;
@@ -441,11 +455,22 @@ function Oekaki(setupOptions) {
 		return canDraw;
 	}
 
+	function commitWorkingContext() {
+		getCurrentLayer().ctx.drawImage(workingCanvas, 0, 0, workingCanvas.width, workingCanvas.height);
+		clearWorkingContext();
+	}
+
+	function clearWorkingContext() {
+		workingContext.clearRect(0, 0, workingCanvas.width, workingCanvas.height);
+	}
+
 	events.startDrawing = function(e) {
 		if (canDraw()) {
 			e.preventDefault();
 			log("Start drawing");
-			brush.setPosition(getEventPosition(e, elems.page));
+
+			commitWorkingContext();
+			brush.setPosition(getEventPosition(e, elems.page, zoom));
 			flags.drawing = true;
 		}
 
@@ -453,6 +478,26 @@ function Oekaki(setupOptions) {
 			events.eyeDropper(e);
 		}
 	}
+
+	events.undo = function(e) {
+		e.preventDefault();
+		if (redoHistory.length < 1 && history.length > 0) {
+			e.preventDefault();
+			var stroke = history.pop();
+			log(stroke);
+			clearWorkingContext();
+			redoHistory.push(stroke);
+		}
+	};
+
+	events.redo = function(e) {
+		e.preventDefault();
+		if (redoHistory.length) {
+			var stroke = redoHistory.pop();
+			brush.drawPath(workingContext, stroke);
+			history.push(stroke);
+		}
+	};
 
 	events.keyDown = function(e) {
 		if (e.altKey) {
@@ -464,13 +509,23 @@ function Oekaki(setupOptions) {
 		flags.eyedropper = false;
 	};
 
+	events.keyPress = function(e) {
+		if (e.target === document.body && e.key.toUpperCase() == 'Z') {
+			if (e.shiftKey) {
+				events.redo(e);
+			} else {
+				events.undo(e);
+			}
+		}
+	};
+
 	events.eyeDropperPreview = function(e) {
 		// option/alt
 		if (flags.eyedropper) {
 			e.preventDefault();
 			var pos = getEventPosition(e, elems.page);
-			var color = elems.color.active.colorPicker.eyeDropper(pos.x, pos.y, getCurrentLayer().ctx);
-			elems.color.active.colorPicker.setPreviewColor(color);
+			var color = colors.active.colorPicker.eyeDropper(pos.x, pos.y, getCurrentLayer().ctx);
+			colors.active.colorPicker.setPreviewColor(color);
 			flags.blockDrawing = true;
 		}
 	}
@@ -480,8 +535,8 @@ function Oekaki(setupOptions) {
 		if (flags.eyedropper) {
 			e.preventDefault();
 			var pos = getEventPosition(e, elems.page);
-			var color = elems.color.active.colorPicker.eyeDropper(pos.x, pos.y, getCurrentLayer().ctx);
-			elems.color.active.colorPicker.setSelectedColor(color);
+			var color = colors.active.colorPicker.eyeDropper(pos.x, pos.y, getCurrentLayer().ctx);
+			colors.active.colorPicker.setSelectedColor(color);
 			flags.blockDrawing = true;
 		}
 	};
@@ -494,8 +549,9 @@ function Oekaki(setupOptions) {
 		}
 
 		if (flags.drawing && canDraw()) {
-			brush.setPosition(getEventPosition(e, elems.page));
-			brush.draw(getCurrentLayer());
+			brush.setPosition(getEventPosition(e, elems.page, zoom));
+			clearWorkingContext();
+			brush.draw(workingContext);
 			setUnsaved();
 		}
 	}
@@ -514,6 +570,8 @@ function Oekaki(setupOptions) {
 		e.preventDefault();
 		if (flags.drawing) {
 			log("Stop drawing");
+			redoHistory = [];
+			history.push(brush.clearPath());
 		}
 		flags.drawing = false;
 		flags.blockDrawing = false;
@@ -559,6 +617,8 @@ function Oekaki(setupOptions) {
 				layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
 			}
 		}
+
+		workingContext.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
 	}
 
 	function download(filename) {
@@ -588,26 +648,55 @@ function Brush(color, size, opacity) {
 		isPrimColor = true,
 		path = [];
 
-	brush.draw = function(layer) {
-		layer.ctx.lineCap = 'round';
-		layer.ctx.strokeStyle = brush.getColor();
+	brush.draw = function(context) {
+		var strokeInfo = brush.getStrokeInfo();
+		return brush.drawPath(context, strokeInfo);
+	};
+
+	brush.drawPath = function(context, strokeInfo) {
+		context.lineCap = 'round';
+		context.lineJoin = 'round';
+		context.strokeStyle = strokeInfo.color;
 
 		// brush glow!
-		layer.ctx.shadowColor = brush.getColor();
-		layer.ctx.shadowBlur = brush.getSize() / 10;
+		context.shadowColor = strokeInfo.color;
+		context.shadowBlur = strokeInfo.size / 10;
 
-		layer.ctx.lineWidth = brush.getSize();
-		layer.ctx.globalAlpha = brush.getOpacity() / 100;
+		context.lineWidth = strokeInfo.size;
+		context.globalAlpha = strokeInfo.opacity / 100;
 
-		if (path.length) {
-			var from = path[0];
-			layer.ctx.beginPath();
-			layer.ctx.moveTo(from.x, from.y);
-			layer.ctx.lineTo(position.x, position.y);
-			layer.ctx.stroke();
-			layer.ctx.closePath();
+		if (strokeInfo.path.length > 1) {
+			var fromPoint = new Point(strokeInfo.path[0]);
+
+			context.moveTo(fromPoint.x, fromPoint.y);
+			context.beginPath();
+
+			for (var i = 1; i < strokeInfo.path.length; i++) {
+				toPoint = new Point(strokeInfo.path[i])
+				var midpoint = fromPoint.getMidpoint(toPoint);
+				context.quadraticCurveTo(fromPoint.x, fromPoint.y, midpoint.x, midpoint.y);
+				fromPoint = midpoint;
+			}
+
+			context.stroke();
+			context.closePath();
 		}
 	}
+
+	brush.getStrokeInfo = function() {
+		return {
+			path: path,
+			color: brush.getColor(),
+			size: brush.getSize(),
+			opacity: brush.getOpacity()
+		};
+	};
+
+	brush.clearPath = function() {
+		var stroke = brush.getStrokeInfo();
+		path = [];
+		return stroke;
+	};
 
 	brush.setColors = function(primColor, altColor) {
 		return brush.setColor(primColor).setAltColor(altColor);
@@ -674,15 +763,9 @@ function Brush(color, size, opacity) {
 			y = x.y;
 			x = x.x;
 		}
-
-		if (!position) {
-			position = {x: null, y: null};
-		} else {
-			path.unshift({...position});
-		}
-
-		position.x = x;
-		position.y = y;
+		
+		position = {x: x, y: y};
+		path.unshift(position);
 		return brush;
 	};
 
@@ -691,6 +774,50 @@ function Brush(color, size, opacity) {
 	};
 
 	return brush;
+}
+
+
+function Point(x, y) {
+	var that = this;
+
+	if (typeof x == 'object') {
+		y = x.y;
+		x = x.x;
+	}
+
+	that.x = x;
+	that.y = y;
+
+	that.getDistance = function(point) {
+		var diff = that.getDiff(point);
+		return Math.sqrt(Math.pow(diff.x, 2) + Math.pow(diff.y, 2));
+	};
+
+	that.getMidpoint = function(point) {
+		var diff = that.getDiff(point);
+		var midpoint = new Point(that.x - diff.x / 2, that.y - diff.y / 2);
+		return midpoint;
+	};
+
+	that.getAngle = function(point) {
+		var diff = that.getDiff(point);
+		return Math.atan2(diff.x, diff.y);
+	};
+
+	that.getDiff = function(point) {
+		var diff = new Point(that.x - point.x, that.y - point.y);
+		// log([that.x, that.y, point.x, point.y, diff.x, diff.y]);
+		return diff;
+	};
+
+	that.toObject = function() {
+		return {
+			x: that.x,
+			y: that.y
+		};
+	}
+
+	return that;
 }
 
 function ColorPicker(setupOptions) {
