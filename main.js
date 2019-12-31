@@ -18,17 +18,25 @@ function Oekaki(setupOptions) {
 			container: null,
 			page: null,
 			toolbar: null,
-			titlebar: null,
-			colors: {
-				foreground: null,
-				background: null,
-				active: null
-			}
+			titlebar: null
+		},
+		colors = {
+			foreground: {
+				elem: null,
+				baseClasses: 'oekaki-color oekaki-color-primary',
+				isPrim: true,
+				isActive: true
+			},
+			background: {
+				elem: null,
+				baseClasses: 'oekaki-color oekaki-color-alt',
+				isPrim: false,
+				isActive: false
+			},
+			active: null
 		},
 		layers = {},
 		currentLayer,
-		colorPicker,
-		altColorPicker,
 		brush = new Brush("#000000", 2, 100),
 		zoom = 1,
 		flags = {
@@ -58,7 +66,10 @@ function Oekaki(setupOptions) {
 			},
 			setColor: {
 				action: function(e) {
-					brush.setColor(prompt("Enter color (any valid HTML color code)", brush.getColor()));
+					var color = prompt("Enter color (any valid HTML color code)", brush.getColor());
+					if (color) {
+						brush.setColor(color);
+					}
 				},
 				label: "Set Color",
 				active: false
@@ -220,10 +231,9 @@ function Oekaki(setupOptions) {
 			options.backgroundColor = elems.form.background.value;
 
 			if (options.backgroundColor == "black") {
-				brush.setColor("#ffffff");
-				brush.setAltColor("#000000");
+				brush.setColors("#ffffff", "#000000");
 			} else {
-				brush.setAltColor("#ffffff");
+				brush.setColors("#000000", "#ffffff");
 			}
 
 			elems.form.parentNode.removeChild(elems.form);
@@ -237,27 +247,31 @@ function Oekaki(setupOptions) {
 		log("Launching");
 		log(options);
 
-		elems.titlebar = document.createElement('div');
-		elems.titlebar.className = "oekaki-titlebar";
-		elems.container.appendChild(elems.titlebar);
+		initTitlebar(elems.container);
 
+		// Main area
 		var rows = document.createElement('div');
 		rows.className = 'oekaki-rows';
 		elems.container.appendChild(rows);
 
-		elems.toolbar = document.createElement('div');
-		elems.toolbar.className = 'oekaki-toolbar';
-		rows.appendChild(elems.toolbar);
+		initToolbar(rows);
+		initPage(rows);
+		initListeners();
+	}
 
-
-		elems.page = document.createElement('div');
-		rows.appendChild(elems.page);
-		elems.page.className = "oekaki-page oekaki-transbg";
-		elems.page.style.width = options.width + "px";
-		elems.page.style.height = options.height + "px";
+	function initTitlebar(parent) {
+		elems.titlebar = document.createElement('div');
+		elems.titlebar.className = "oekaki-titlebar";
+		parent.appendChild(elems.titlebar);
 
 		document.originalTitle = document.title;
 		updateTitle();
+	}
+
+	function initToolbar(parent) {
+		elems.toolbar = document.createElement('div');
+		elems.toolbar.className = 'oekaki-toolbar';
+		parent.appendChild(elems.toolbar);
 
 		for (var btnName in buttons) {
 			if (!buttons[btnName].active) {
@@ -270,73 +284,89 @@ function Oekaki(setupOptions) {
 			elems.toolbar.appendChild(btn);
 		}
 
-		// future: Allow several layers
+		initColors(elems.toolbar);
+	}
+
+	function initPage(parent) {
+		elems.page = document.createElement('div');
+		elems.page.className = "oekaki-page oekaki-transbg";
+		elems.page.style.width = options.width + "px";
+		elems.page.style.height = options.height + "px";
+		parent.appendChild(elems.page);
+
 		var bg = addLayer('Background', true);
 		clear();
+	}
 
-		var colors = document.createElement('div');
-		colors.className = 'oekaki-colors';
-		elems.colors.foreground = document.createElement('div');
-		elems.colors.foreground.baseClasses = 'oekaki-color oekaki-color-primary';
-		elems.colors.foreground.isPrim = true;
-		colors.appendChild(elems.colors.foreground);
-		elems.colors.background = document.createElement('div');
-		elems.colors.background.baseClasses = 'oekaki-color oekaki-color-alt';
-		elems.colors.background.isPrim = false;
-		colors.appendChild(elems.colors.background);
-		elems.toolbar.appendChild(colors);
-		elems.colors.active = elems.colors.foreground;
+	function initColors(parent) {
+		colors.foreground.elem = document.createElement('div');
+		colors.background.elem = document.createElement('div');
 
-		elems.colors.background.otherColor = elems.colors.foreground;
-		elems.colors.foreground.otherColor = elems.colors.background;
+		var colorsContainer = document.createElement('div');
+		colorsContainer.className = 'oekaki-colors';
+		colorsContainer.appendChild(colors.foreground.elem);
+		colorsContainer.appendChild(colors.background.elem);
+		parent.appendChild(colorsContainer);
+
+		colors.foreground.colorPicker = new ColorPicker({
+			parentElement: document.body,
+			color: brush.getColor(),
+			modal: true,
+			onChange: function(color) {
+				log("Setting brush color " + color.toHex());
+				brush.setColor(color.toHex());
+				// brush.setOpacity(color.getOpacity());
+				colors.foreground.elem.style.backgroundColor = color.toString();
+			}
+		});
+
+		colors.background.colorPicker = new ColorPicker({
+			parentElement: document.body,
+			color: brush.getAltColor(),
+			modal: true,
+			onChange: function(color) {
+				log("Setting brush alt color " + color.toHex());
+				brush.setAltColor(color.toHex());
+				// brush.setOpacity(color.getOpacity());
+				colors.background.elem.style.backgroundColor = color.toString();
+			}
+		});
+
+		colors.foreground.elem.colorObj = colors.foreground;
+		colors.background.elem.colorObj = colors.background;
+		colors.foreground.elem.otherColor = colors.background;
+		colors.background.elem.otherColor = colors.foreground;
 
 		var setColorActive = function(color, isActive) {
-			color.className = color.baseClasses
+			color.elem.className = color.baseClasses
 			if (isActive) {
-				color.className += ' oekaki-color-active';
+				color.elem.className += ' oekaki-color-active';
 				brush.setPrimColorFlag(color.isPrim);
-				elems.colors.active = color;
+				colors.active = color;
 			}
 			color.isActive = isActive;
 		};
 
 		var clickColor = function(e) {
 			e.preventDefault();
-			var isActive = e.target.isActive;
-			setColorActive(e.target, !isActive);
-			setColorActive(e.target.otherColor, isActive);
+			var isActive = e.target.colorObj.isActive;
+			if (!isActive) {
+				setColorActive(e.target.colorObj, !isActive);
+				setColorActive(e.target.otherColor, isActive);
+			} else {
+				// show color picker
+				e.target.colorObj.colorPicker.showModal();
+			}
 		};
 
-		setColorActive(elems.colors.foreground, true);
-		setColorActive(elems.colors.background, false);
+		setColorActive(colors.foreground, true);
+		setColorActive(colors.background, false);
 
-		elems.colors.foreground.addEventListener('click', clickColor);
-		elems.colors.background.addEventListener('click', clickColor);
+		colors.foreground.elem.addEventListener('click', clickColor);
+		colors.background.elem.addEventListener('click', clickColor);
+	}
 
-
-		// Has to be set after layer is created
-		colorPicker = new ColorPicker({
-			parentElement: document.body,
-			color: brush.getColor(),
-			onChange: function(color) {
-				log("Setting brush color " + color.toHex());
-				brush.setColor(color.toHex());
-				// brush.setOpacity(color.getOpacity());
-				elems.colors.foreground.style.backgroundColor = color.toString();
-			}
-		});
-
-		altColorPicker = new ColorPicker({
-			parentElement: document.body,
-			color: brush.getAltColor(),
-			onChange: function(color) {
-				log("Setting brush alt color " + color.toHex());
-				brush.setAltColor(color.toHex());
-				// brush.setOpacity(color.getOpacity());
-				elems.colors.background.style.backgroundColor = color.toString();
-			}
-		});
-
+	function initListeners() {
 		// Set up listeners
 		elems.page.addEventListener("mousedown", events.startDrawing);
 		window.addEventListener("mousemove", events.move);
@@ -434,8 +464,8 @@ function Oekaki(setupOptions) {
 		if (flags.eyedropper) {
 			e.preventDefault();
 			var pos = getEventPosition(e, elems.page);
-			var color = colorPicker.eyeDropper(pos.x, pos.y, getCurrentLayer().ctx);
-			colorPicker.setPreviewColor(color);
+			var color = elems.color.active.colorPicker.eyeDropper(pos.x, pos.y, getCurrentLayer().ctx);
+			elems.color.active.colorPicker.setPreviewColor(color);
 			flags.blockDrawing = true;
 		}
 	}
@@ -445,8 +475,8 @@ function Oekaki(setupOptions) {
 		if (flags.eyedropper) {
 			e.preventDefault();
 			var pos = getEventPosition(e, elems.page);
-			var color = colorPicker.eyeDropper(pos.x, pos.y, getCurrentLayer().ctx);
-			colorPicker.setSelectedColor(color);
+			var color = elems.color.active.colorPicker.eyeDropper(pos.x, pos.y, getCurrentLayer().ctx);
+			elems.color.active.colorPicker.setSelectedColor(color);
 			flags.blockDrawing = true;
 		}
 	};
@@ -574,6 +604,10 @@ function Brush(color, size, opacity) {
 		}
 	}
 
+	brush.setColors = function(primColor, altColor) {
+		return brush.setColor(primColor).setAltColor(altColor);
+	};
+
 	brush.setColor = function(newColor) {
 		color = newColor;
 		return brush;
@@ -656,6 +690,7 @@ function ColorPicker(setupOptions) {
 			color: '#FFFFFF',
 			pixelDensity: 2,
 			spacing: 10,
+			modal: false,
 			colorCanvas: {
 				width: 255,
 				height: 255
@@ -686,7 +721,8 @@ function ColorPicker(setupOptions) {
 		colorCtx,
 		hueCtx,
 		selectedColor,
-		previewColor;
+		previewColor,
+		modal;
 
 	function createElements() {
 		container = document.createElement('div');
@@ -699,7 +735,13 @@ function ColorPicker(setupOptions) {
 		colorCtx = colorCanvas.getContext('2d');
 		hueCtx = hueCanvas.getContext('2d');
 
-		options.parentElement.appendChild(container);
+		if (options.modal) {
+			modal = new Modal(options.parentElement, 'color-picker-');
+			modal.appendChild(container);
+		} else {
+			options.parentElement.appendChild(container);
+		}
+
 		container.appendChild(colorCanvas);
 		container.appendChild(rightPanel);
 		rightPanel.appendChild(hex);
@@ -954,6 +996,18 @@ function ColorPicker(setupOptions) {
 		return new Color(new RGB(data[0], data[1], data[2]), data[3] / 255);
 	}
 
+	that.showModal = function() {
+		if (modal) {
+			modal.open();
+		}
+	}
+	
+	that.hideModal = function() {
+		if (modal) {
+			modal.close();
+		}
+	}
+
 	that.setSelectedColor = selectColor;
 	that.setPreviewColor = setPreviewColor;
 
@@ -1104,6 +1158,46 @@ function Color(rgbOrHsv, a) {
 	return that;
 }
 
+function Modal(container, classPrefix) {
+	var modal = this,
+		elem = document.createElement('div')
+		baseClass = classPrefix + 'modal';
+		
+	modal.appendChild = function(child) {
+		elem.appendChild(child);
+	};
+
+	modal.open = function() {
+		elem.className = baseClass + ' ' + baseClass + '-open';
+		modal.isActive = true;
+	};
+
+	modal.close = function() {
+		elem.className = baseClass + ' ' + baseClass + '-closed';
+		modal.isActive = false;
+	};
+
+	function init() {
+		container.appendChild(elem);
+
+		document.addEventListener('keyup', function(e) {
+			if (modal.isActive && e.key === "Escape") {
+				modal.close();
+			}
+		});
+
+		elem.addEventListener('click', function(e) {
+			if (e.target == elem) {
+				modal.close();
+			}
+		});
+
+		modal.close();
+	}
+
+	init();
+	return modal;
+}
 
 // Utility functions //
 
