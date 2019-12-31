@@ -55,22 +55,19 @@ function Oekaki(setupOptions) {
 				action: function(e) {
 					if (confirm("Are you sure you want to clear the canvas?")) {
 						clear();
+						logAction("clear");
 					}
 				},
 				label: "Clear",
 				active: true
 			},
 			undo: {
-				action: function(e) {
-					events.undo(e);
-				},
+				action: events.undo,
 				label: "Undo - Z",
 				active: true
 			},
 			redo: {
-				action: function(e) {
-					events.redo(e);
-				},
+				action: events.redo,
 				label: "Redo - ⇧Z",
 				active: true
 			},
@@ -471,29 +468,60 @@ function Oekaki(setupOptions) {
 		return canDraw;
 	}
 
-	function commitWorkingContext() {
+	function commitWorkingCanvas() {
 		getCurrentLayer().ctx.drawImage(workingCanvas, 0, 0, workingCanvas.width, workingCanvas.height);
-		clearWorkingContext();
+		clearWorkingCanvas();
 	}
 
-	function clearWorkingContext() {
+	function clearWorkingCanvas() {
 		workingContext.clearRect(0, 0, workingCanvas.width, workingCanvas.height);
 	}
 
 	function draw(e) {
 		brush.addToPath(getEventPositions(e, elems.page, zoom));
-		clearWorkingContext();
+		clearWorkingCanvas();
 		brush.draw(workingContext);
 		setUnsaved();
 	}
 
 	function redraw() {
-		// clear all layers
-		// draw history state
 		clear();
 		for (var i = 0; i < history.length; ++i) {
-			var state = history[i];
-			brush.drawPath(state.layer.ctx, state.stroke);
+			redoState(history[i]);
+		}
+	}
+
+	function redoState(state) {
+		switch (state.action) {
+			case "brush": brush.drawPath(state.layer.ctx, state.stroke); break;
+			case "clear": clear(); break;
+		}
+	}
+
+	function logAction(action, state) {
+		if (typeof state == "undefined") {
+			state = {};
+		}
+
+		state.action = action;
+		history.push(state);
+		redoHistory = [];
+	}
+
+	function undo() {
+		if (history.length > 0) {
+			var state = history.pop();
+			clearWorkingCanvas();
+			redoHistory.push(state);
+			redraw();
+		}
+	}
+
+	function redo() {
+		if (redoHistory.length) {
+			var state = redoHistory.pop();
+			redoState(state);
+			history.push(state);
 		}
 	}
 
@@ -513,22 +541,12 @@ function Oekaki(setupOptions) {
 
 	events.undo = function(e) {
 		e.preventDefault();
-		if (history.length > 0) {
-			e.preventDefault();
-			var state = history.pop();
-			clearWorkingContext();
-			redoHistory.push(state);
-			redraw();
-		}
+		undo();
 	};
 
 	events.redo = function(e) {
 		e.preventDefault();
-		if (redoHistory.length) {
-			var state = redoHistory.pop();
-			brush.drawPath(state.layer.ctx, state.stroke);
-			history.push(state);
-		}
+		redo();
 	};
 
 	events.keyDown = function(e) {
@@ -599,16 +617,15 @@ function Oekaki(setupOptions) {
 		e.preventDefault();
 		if (flags.drawing) {
 			log("Stop drawing");
-			redoHistory = [];
 			if (brush.isDot()) {
 				draw(e);
 			}
 			var stroke = brush.clearPath();
-			history.push({
+			logAction("brush", {
 				layer: getCurrentLayer(),
 				stroke: stroke
 			});
-			commitWorkingContext();
+			commitWorkingCanvas();
 		}
 		flags.drawing = false;
 		flags.blockDrawing = false;
