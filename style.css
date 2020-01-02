@@ -175,6 +175,11 @@ body {
 	box-sizing: border-box;
 }
 
+.oekaki-load-select {
+	width: 100%;
+	font-size: 20px;
+}
+
 .oekaki-create-form label.oekaki-create-input-width, .oekaki-create-form label.oekaki-create-input-height {
 	width: 50%;
 	box-sizing: border-box;

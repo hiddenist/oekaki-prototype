@@ -131,7 +131,7 @@ function Oekaki(setupOptions) {
 					download(options.name);
 				},
 				label: "Download",
-				active: true
+				active: false
 			},
 			export: {
 				action: function(e) {
@@ -256,39 +256,42 @@ function Oekaki(setupOptions) {
 		}
 
 		var saveBtn = document.createElement('button');
-		saveBtn.innerHTML = "Start Drawing!";
+		saveBtn.innerHTML = "New Drawing";
 		elems.form.appendChild(saveBtn);
 
 
-		elems.form.appendChild(document.createElement('hr'));
+		// Uploading the saved files isn't working right now.
+		// elems.form.appendChild(document.createElement('hr'));
 
-		var loadFile = document.createElement('input');
-		loadFile.type = 'file';
-		loadFile.innerHTML = "Load File";
-		elems.form.appendChild(loadFile);
+		// var loadFile = document.createElement('input');
+		// loadFile.type = 'file';
+		// loadFile.innerHTML = "Load File";
+		// elems.form.appendChild(loadFile);
 
-		loadFile.addEventListener("change", function(e) {
-			e.preventDefault();
+		// loadFile.addEventListener("change", function(e) {
+		// 	e.preventDefault();
 
-			elems.form.innerHTML = "Loading file...";
+		// 	elems.form.innerHTML = "Loading file...";
 
-			var file = e.target.files[0];
-			var reader = new FileReader();
-			reader.addEventListener("load", function(e) {
-				load(e.target.result);
+		// 	var file = e.target.files[0];
+		// 	var reader = new FileReader();
+		// 	reader.addEventListener("load", function(e) {
+		// 		load(e.target.result);
 
-				elems.form.parentNode.removeChild(elems.form);
-				elems.form = null;
-			});
+		// 		elems.form.parentNode.removeChild(elems.form);
+		// 		elems.form = null;
+		// 	});
 
-			reader.readAsText(file);
-		});
+		// 	reader.readAsText(file);
+		// });
 
 		var savedDrawings = getSavedDrawingsList();
 
 		if (savedDrawings.length) {
 			elems.form.appendChild(document.createElement('hr'));
+			
 			var loadDrawing = document.createElement('select');
+			loadDrawing.className = "oekaki-load-select";
 
 			savedDrawings.forEach(function(filename) {
 				var option = document.createElement('option');
@@ -306,6 +309,10 @@ function Oekaki(setupOptions) {
 
 			loadBtn.addEventListener("click", function(e) {
 				e.preventDefault();
+
+				if (loadDrawing.value === "") {
+					return;
+				}
 
 				var fileContent = localStorage.getItem("savedDrawing:" + loadDrawing.value);
 				if (load(fileContent)) {
