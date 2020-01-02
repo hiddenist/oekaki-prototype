@@ -1,6 +1,8 @@
 var debug = false;
 
 function Oekaki(setupOptions) {
+	const SAVED_DRAWING_PREFIX = 'savedDrawing:';
+
 	var obj = {},
 		defaultOptions = {
 			width: 500,
@@ -18,7 +20,9 @@ function Oekaki(setupOptions) {
 			container: null,
 			page: null,
 			toolbar: null,
-			titlebar: null
+			titlebar: null,
+			layerSelect: null,
+			buttons: {}
 		},
 		colors = {
 			foreground: {
@@ -41,6 +45,8 @@ function Oekaki(setupOptions) {
 		workingContext,
 		history = [],
 		redoHistory = [],
+		savedAs = null,
+		// TO DO: Use color class with brush
 		brush = new Brush("#000000", 2, 100),
 		zoom = 1,
 		flags = {
@@ -51,24 +57,12 @@ function Oekaki(setupOptions) {
 		},
 		events = {},
 		buttons = {
-			clear: {
+			save: {
 				action: function(e) {
-					if (confirm("Are you sure you want to clear the canvas?")) {
-						clear();
-						logAction("clear");
-					}
+					save();
 				},
-				label: "Clear",
-				active: true
-			},
-			undo: {
-				action: events.undo,
-				label: "Undo - Z",
-				active: true
-			},
-			redo: {
-				action: events.redo,
-				label: "Redo - ⇧Z",
+				label: "Save",
+				keyCommand: "⌘S",
 				active: true
 			},
 			rename: {
@@ -80,6 +74,26 @@ function Oekaki(setupOptions) {
 					}
 				},
 				label: "Rename",
+				active: true
+			},
+			undo: {
+				action: events.undo,
+				label: "Undo",
+				keyCommand: "⌘Z",
+				active: true
+			},
+			redo: {
+				action: events.redo,
+				label: "Redo",
+				keyCommand: "⌘⇧Z",
+				active: true
+			},
+			clear: {
+				action: function(e) {
+					clear();
+					logAction("clear");
+				},
+				label: "Clear",
 				active: true
 			},
 			setColor: {
@@ -112,12 +126,18 @@ function Oekaki(setupOptions) {
 				label: "Set Opacity",
 				active: true
 			},
-			save: {
+			download: {
 				action: function(e) {
-					download(options.name + ".png");
-					setSaved();
+					download(options.name);
 				},
-				label: "Save",
+				label: "Download",
+				active: true
+			},
+			export: {
+				action: function(e) {
+					exportPNG(options.name + ".png");
+				},
+				label: "Export",
 				active: true
 			},
 		};
@@ -235,9 +255,67 @@ function Oekaki(setupOptions) {
 			elems.form.appendChild(label);
 		}
 
-		var btn = document.createElement('button');
-		btn.innerHTML = "Start Drawing!";
-		elems.form.appendChild(btn);
+		var saveBtn = document.createElement('button');
+		saveBtn.innerHTML = "Start Drawing!";
+		elems.form.appendChild(saveBtn);
+
+
+		elems.form.appendChild(document.createElement('hr'));
+
+		var loadFile = document.createElement('input');
+		loadFile.type = 'file';
+		loadFile.innerHTML = "Load File";
+		elems.form.appendChild(loadFile);
+
+		loadFile.addEventListener("change", function(e) {
+			e.preventDefault();
+
+			elems.form.innerHTML = "Loading file...";
+
+			var file = e.target.files[0];
+			var reader = new FileReader();
+			reader.addEventListener("load", function(e) {
+				load(e.target.result);
+
+				elems.form.parentNode.removeChild(elems.form);
+				elems.form = null;
+			});
+
+			reader.readAsText(file);
+		});
+
+		var savedDrawings = getSavedDrawingsList();
+
+		if (savedDrawings.length) {
+			elems.form.appendChild(document.createElement('hr'));
+			var loadDrawing = document.createElement('select');
+
+			savedDrawings.forEach(function(filename) {
+				var option = document.createElement('option');
+				option.innerHTML = filename;
+				loadDrawing.appendChild(option);
+			});
+
+			log(savedDrawings);
+
+			elems.form.appendChild(loadDrawing);
+
+			var loadBtn = document.createElement('button');
+			loadBtn.innerHTML = "Load";
+			elems.form.appendChild(loadBtn);
+
+			loadBtn.addEventListener("click", function(e) {
+				e.preventDefault();
+
+				var fileContent = localStorage.getItem("savedDrawing:" + loadDrawing.value);
+				if (load(fileContent)) {
+					savedAs = loadDrawing.value;
+					elems.form.parentNode.removeChild(elems.form);
+					elems.form = null;
+				}
+				// to do: get the filename of the selected option, load the file in that location from localStorage
+			});
+		}
 
 		elems.form.addEventListener("submit", function(e) {
 			log("Received form submission");
@@ -262,9 +340,14 @@ function Oekaki(setupOptions) {
 	}
 
 	function launch() {
-		log("Launching");
-		log(options);
+		initDocument();
+		addLayer('Background', true);
+		clear();
+	}
 
+	function initDocument() {
+		log("initDocument");
+		log(options);
 		initTitlebar(elems.container);
 
 		// Main area
@@ -291,18 +374,33 @@ function Oekaki(setupOptions) {
 		elems.toolbar.className = 'oekaki-toolbar';
 		parent.appendChild(elems.toolbar);
 
-		for (var btnName in buttons) {
-			if (!buttons[btnName].active) {
-				continue;
-			}
-			var btn = document.createElement('div');
-			btn.className = "oekaki-button oekaki-button-" + btnName;
-			btn.innerHTML = buttons[btnName].label;
-			btn.addEventListener("click", buttons[btnName].action);
-			elems.toolbar.appendChild(btn);
+		for (var buttonName in buttons) {
+			createButton(elems.toolbar, buttonName, buttons[buttonName]);
 		}
 
 		initColors(elems.toolbar);
+		initLayers(elems.toolbar);
+	}
+
+	function createButton(parent, buttonName, button) {
+		if (typeof button.active == 'undefined') {
+			button.active = true;
+		}
+
+		if (!button.active) {
+			return;
+		}
+
+		var btn = document.createElement('div');
+		btn.className = "oekaki-button oekaki-button-" + buttonName;
+		btn.innerHTML = button.label;
+		if ('keyCommand' in button) {
+			btn.innerHTML += '<small class="oekaki-button-command">' + button.keyCommand + "</small>";
+		}
+		btn.addEventListener("click", button.action);
+		elems.buttons[buttonName] = btn;
+		parent.appendChild(btn);
+		return btn;
 	}
 
 	function initPage(parent) {
@@ -317,16 +415,12 @@ function Oekaki(setupOptions) {
 		pageContainer.appendChild(elems.page);
 		parent.appendChild(pageContainer);
 
-		addLayer('Background', true);
-
 		workingCanvas = document.createElement('canvas');
 		workingCanvas.className = 'oekaki-working-canvas';
 		workingCanvas.width = options.width;
 		workingCanvas.height = options.height;
 		workingContext = workingCanvas.getContext('2d');
 		elems.page.appendChild(workingCanvas);
-
-		clear();
 	}
 
 	function initColors(parent) {
@@ -397,6 +491,35 @@ function Oekaki(setupOptions) {
 		colors.background.elem.addEventListener('click', clickColor);
 	}
 
+	function initLayers(parent) {
+		var layerSelect = elems.layerSelect = document.createElement('select');
+		layerSelect.className = 'oekaki-layers';
+		
+		layerSelect.addEventListener("change", function(e) {
+			setLayerActive(layerSelect.value);
+		});
+
+		parent.appendChild(elems.layerSelect);
+
+		createButton(parent, 'newLayer', {
+			label: "+ Layer",
+			action: function(e) {
+				var layerName = prompt("New Layer Name", "Layer " + Object.keys(layers).length);
+
+				if (!layerName) {
+					return;
+				}
+
+				if (layerName in layers) {
+					showMessage("Layer name is already in use");
+					return;
+				}
+
+				addLayer(layerName);
+			}
+		});
+	}
+
 	function initListeners() {
 		// Set up listeners
 		workingCanvas.addEventListener("mousedown", events.startDrawing);
@@ -429,28 +552,49 @@ function Oekaki(setupOptions) {
 	}
 
 	function showMessage(message) {
-		alert(message);
+		throw message;
 	}
 
 	function setLayerActive(name) {
 		if (name in layers) {
 			log("Setting active layer: " + name);
 			currentLayer = name;
+			elems.layerSelect.value = name;
 		}
 	}
 
-	function addLayer(name, isBg) {
+	function addLayer(name, isBg, _saveState) {
 		log("Adding layer: " + name);
 		
+		if (typeof isBg == "undefined") {
+			isBg = false;
+		}
+
+		if (typeof _saveState == "undefined") {
+			_saveState = true;
+		}
+
+		if (_saveState) {
+			logAction("addLayer", {args: [name, isBg]});
+		}
+
 		if (name in layers) {
 			showMessage('A layer named "' + name + '" already exists');
 			return;
 		}
-		
+
+		var option = document.createElement("option");
+		option.innerHTML = name;
+		if (elems.layerSelect.children.length) {
+			elems.layerSelect.insertBefore(option, elems.layerSelect.children[0]);
+		} else {
+			elems.layerSelect.appendChild(option);
+		}
+
 		var canvas = document.createElement('canvas');
 		canvas.width = options.width;
 		canvas.height = options.height;
-		elems.page.appendChild(canvas);
+		elems.page.insertBefore(canvas, workingCanvas);
 
 		var layer = layers[name] = {
 			canvas: canvas,
@@ -468,8 +612,12 @@ function Oekaki(setupOptions) {
 		return canDraw;
 	}
 
+	function copyCanvasToContext(canvas, copyToContext) {
+		copyToContext.drawImage(canvas, 0, 0, canvas.width, canvas.height);
+	}
+
 	function commitWorkingCanvas() {
-		getCurrentLayer().ctx.drawImage(workingCanvas, 0, 0, workingCanvas.width, workingCanvas.height);
+		copyCanvasToContext(workingCanvas, getCurrentLayer().ctx);
 		clearWorkingCanvas();
 	}
 
@@ -485,16 +633,18 @@ function Oekaki(setupOptions) {
 	}
 
 	function redraw() {
-		clear();
+		reset();
 		for (var i = 0; i < history.length; ++i) {
+			log(history[i]);
 			redoState(history[i]);
 		}
 	}
 
 	function redoState(state) {
 		switch (state.action) {
-			case "brush": brush.drawPath(state.layer.ctx, state.stroke); break;
+			case "brush": brush.drawPath(getLayer(state.layer).ctx, state.stroke); break;
 			case "clear": clear(); break;
+			case "addLayer": addLayer(...state.args, false); break;
 		}
 	}
 
@@ -509,7 +659,7 @@ function Oekaki(setupOptions) {
 	}
 
 	function undo() {
-		if (history.length > 0) {
+		if (history.length > 1) {
 			var state = history.pop();
 			clearWorkingCanvas();
 			redoHistory.push(state);
@@ -553,20 +703,26 @@ function Oekaki(setupOptions) {
 		if (e.altKey) {
 			flags.eyedropper = true;
 		}
+
+		if (e.ctrlKey || e.metaKey) {
+			switch (e.key.toUpperCase()) {
+				case 'S':
+					e.preventDefault();
+					save();
+					break;
+				case 'Z':
+					if (e.shiftKey) {
+						events.redo(e);
+					} else {
+						events.undo(e);
+					}
+					break;
+			}
+		}
 	};
 
 	events.keyUp = function(e) {
 		flags.eyedropper = false;
-	};
-
-	events.keyPress = function(e) {
-		if (e.target === document.body && e.key.toUpperCase() == 'Z') {
-			if (e.shiftKey) {
-				events.redo(e);
-			} else {
-				events.undo(e);
-			}
-		}
 	};
 
 	events.eyeDropperPreview = function(e) {
@@ -622,7 +778,7 @@ function Oekaki(setupOptions) {
 			}
 			var stroke = brush.clearPath();
 			logAction("brush", {
-				layer: getCurrentLayer(),
+				layer: currentLayer,
 				stroke: stroke
 			});
 			commitWorkingCanvas();
@@ -658,28 +814,180 @@ function Oekaki(setupOptions) {
 			flags.unsaved = false;
 		}
 	}
+
+	function reset() {
+		// delete all layers
+		for (var key in layers) {
+			var layer = layers[key];
+			layer.canvas.remove();
+			delete layers[key];
+		}
+		log(layers);
+		clearWorkingCanvas();
+	}
+
+	function drawBgColor(layer) {
+		layer.ctx.fillStyle = options.backgroundColor;
+		layer.ctx.globalAlpha = 1;
+		layer.ctx.fillRect(0, 0, layer.canvas.width, layer.canvas.height);
+	}
 	
 	function clear() {
-		for (var i in layers) {
-			var layer = layers[i];
+		for (var key in layers) {
+			var layer = layers[key];
 			if (layer.isBackground && options.backgroundColor && options.backgroundColor != "transparent") {
-				layer.ctx.fillStyle = options.backgroundColor;
-				layer.ctx.globalAlpha = 1;
-				layer.ctx.fillRect(0, 0, layer.canvas.width, layer.canvas.height);
+				drawBgColor(layer);
 				//updateBrush();
 			} else {
 				layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
 			}
 		}
 
-		workingContext.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+		clearWorkingCanvas();
+	}
+
+	function load(fileContents) {
+		if (!fileContents) {
+			throw "Empty file";
+		}
+		var compressed = LZString.decompress(fileContents);
+
+		if (!compressed) {
+			throw "Unable to decompress file";
+		}
+
+		var json = JSON.parse(compressed);
+			
+		if (!json) {
+			throw "Unable to parse file";
+		}
+
+		options.width = json.options.width;
+		options.height = json.options.height;
+		options.name = json.options.name;
+		options.backgroundColor = json.options.backgroundColor;
+
+		if (options.backgroundColor == "black") {
+			brush.setColors("#ffffff", "#000000");
+		} else {
+			brush.setColors("#000000", "#ffffff");
+		}
+
+		initDocument();
+		history = json.history;
+		redraw();
+
+		return true;
+	}
+
+	function generateSaveFile() {
+		var output = {
+			options: options,
+			layers: [],
+			currentLayer: currentLayer,
+			history: history
+		};
+
+		var layerNames = Object.keys(layers);
+		for (var i = 0; i < layerNames.length; ++i) {
+			var name = layerNames[i];
+			output.layers.push({name: name, isBg: layers[name].isBg});
+		}
+
+		return LZString.compress(JSON.stringify(output));
+	}
+
+	function getSavedDrawingsList() {
+		var savedDrawings = localStorage.getItem("savedDrawings");
+
+		if (savedDrawings === null || savedDrawings.length == 0) {
+			log("No saved drawings list, loading from localStorage keys");
+			savedDrawings = [];
+			for (var i = 0; i < localStorage.length; ++i) {
+				var k = localStorage.key(i);
+				log(k);
+				if (k.indexOf(SAVED_DRAWING_PREFIX) == 0) {
+					savedDrawings.push(k.slice(SAVED_DRAWING_PREFIX.length));
+				}
+			}
+		} else {
+			try {
+				savedDrawings = JSON.parse(savedDrawings);
+			} catch (e) {
+				savedDrawings = [];
+			}
+		}
+
+		return savedDrawings;
+	}
+
+	function save(filename) {
+		if (typeof filename == "undefined") {
+			filename = options.name;
+		}
+		var content = generateSaveFile();
+		var savedDrawings = getSavedDrawingsList();
+
+		log(savedDrawings);
+		
+		var i = 0;
+		if (savedAs != filename && savedDrawings.indexOf(filename) >= 0) {
+			var keyName = filename;
+			while (savedDrawings.indexOf(keyName) >= 0) {
+				keyName = filename + " (" + (++i) + ")";
+			}
+
+			if (!confirm(filename + " already exists. Overwrite?")) {
+				if (confirm("Save as " + keyName + "?")) {
+					filename = keyName;
+					options.name = filename;
+					updateTitle();
+				} else {
+					return;
+				}
+			}
+		}
+
+		if (savedDrawings.indexOf(filename) == -1) {
+			savedDrawings.push(filename);
+		}
+
+		localStorage.setItem("savedDrawings", JSON.stringify(savedDrawings.sort()));
+		localStorage.setItem(SAVED_DRAWING_PREFIX + filename, content);
+		savedAs = filename;
+		setSaved();
 	}
 
 	function download(filename) {
-		var layer = getCurrentLayer();
-		// future: when there are multiple layers, combine them before saving
+		var content = generateSaveFile();
+		var file = new File([content], filename, {
+			type: 'application/oekaki-drawing'
+		});
+		var fileReader = new FileReader();
+		fileReader.addEventListener("load", function() {
+			downloadDataURI(filename + '.oedraw', fileReader.result);
+		});
+		fileReader.readAsDataURL(file);
+	}
+
+	function exportPNG(filename) {
+		clearWorkingCanvas();
+
+		// Flatten all layers on to working canvas
+		var layerNames = Object.keys(layers).reverse();
+		for (var i = 0; i < layerNames.length; ++i) {
+			var name = layerNames[i];
+			var layer = layers[name];
+			copyCanvasToContext(layer.canvas, workingContext);
+		}
+
+		downloadDataURI(filename, workingCanvas.toDataURL());
+		clearWorkingCanvas();
+	}
+
+	function downloadDataURI(filename, dataURI) {
 		var a = document.createElement('a');
-		a.href = layer.canvas.toDataURL();
+		a.href = dataURI;
 		a.setAttribute('download', filename);
 		a.click();
 	}
@@ -1455,3 +1763,6 @@ function getEventPositions(e, elem, zoom) {
 
 	return events;
 }
+
+// https://github.com/pieroxy/lz-string/blob/master/libs/lz-string.min.js
+var LZString=function(){function o(o,r){if(!t[o]){t[o]={};for(var n=0;n<o.length;n++)t[o][o.charAt(n)]=n}return t[o][r]}var r=String.fromCharCode,n="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",e="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$",t={},i={compressToBase64:function(o){if(null==o)return"";var r=i._compress(o,6,function(o){return n.charAt(o)});switch(r.length%4){default:case 0:return r;case 1:return r+"===";case 2:return r+"==";case 3:return r+"="}},decompressFromBase64:function(r){return null==r?"":""==r?null:i._decompress(r.length,32,function(e){return o(n,r.charAt(e))})},compressToUTF16:function(o){return null==o?"":i._compress(o,15,function(o){return r(o+32)})+" "},decompressFromUTF16:function(o){return null==o?"":""==o?null:i._decompress(o.length,16384,function(r){return o.charCodeAt(r)-32})},compressToUint8Array:function(o){for(var r=i.compress(o),n=new Uint8Array(2*r.length),e=0,t=r.length;t>e;e++){var s=r.charCodeAt(e);n[2*e]=s>>>8,n[2*e+1]=s%256}return n},decompressFromUint8Array:function(o){if(null===o||void 0===o)return i.decompress(o);for(var n=new Array(o.length/2),e=0,t=n.length;t>e;e++)n[e]=256*o[2*e]+o[2*e+1];var s=[];return n.forEach(function(o){s.push(r(o))}),i.decompress(s.join(""))},compressToEncodedURIComponent:function(o){return null==o?"":i._compress(o,6,function(o){return e.charAt(o)})},decompressFromEncodedURIComponent:function(r){return null==r?"":""==r?null:(r=r.replace(/ /g,"+"),i._decompress(r.length,32,function(n){return o(e,r.charAt(n))}))},compress:function(o){return i._compress(o,16,function(o){return r(o)})},_compress:function(o,r,n){if(null==o)return"";var e,t,i,s={},p={},u="",c="",a="",l=2,f=3,h=2,d=[],m=0,v=0;for(i=0;i<o.length;i+=1)if(u=o.charAt(i),Object.prototype.hasOwnProperty.call(s,u)||(s[u]=f++,p[u]=!0),c=a+u,Object.prototype.hasOwnProperty.call(s,c))a=c;else{if(Object.prototype.hasOwnProperty.call(p,a)){if(a.charCodeAt(0)<256){for(e=0;h>e;e++)m<<=1,v==r-1?(v=0,d.push(n(m)),m=0):v++;for(t=a.charCodeAt(0),e=0;8>e;e++)m=m<<1|1&t,v==r-1?(v=0,d.push(n(m)),m=0):v++,t>>=1}else{for(t=1,e=0;h>e;e++)m=m<<1|t,v==r-1?(v=0,d.push(n(m)),m=0):v++,t=0;for(t=a.charCodeAt(0),e=0;16>e;e++)m=m<<1|1&t,v==r-1?(v=0,d.push(n(m)),m=0):v++,t>>=1}l--,0==l&&(l=Math.pow(2,h),h++),delete p[a]}else for(t=s[a],e=0;h>e;e++)m=m<<1|1&t,v==r-1?(v=0,d.push(n(m)),m=0):v++,t>>=1;l--,0==l&&(l=Math.pow(2,h),h++),s[c]=f++,a=String(u)}if(""!==a){if(Object.prototype.hasOwnProperty.call(p,a)){if(a.charCodeAt(0)<256){for(e=0;h>e;e++)m<<=1,v==r-1?(v=0,d.push(n(m)),m=0):v++;for(t=a.charCodeAt(0),e=0;8>e;e++)m=m<<1|1&t,v==r-1?(v=0,d.push(n(m)),m=0):v++,t>>=1}else{for(t=1,e=0;h>e;e++)m=m<<1|t,v==r-1?(v=0,d.push(n(m)),m=0):v++,t=0;for(t=a.charCodeAt(0),e=0;16>e;e++)m=m<<1|1&t,v==r-1?(v=0,d.push(n(m)),m=0):v++,t>>=1}l--,0==l&&(l=Math.pow(2,h),h++),delete p[a]}else for(t=s[a],e=0;h>e;e++)m=m<<1|1&t,v==r-1?(v=0,d.push(n(m)),m=0):v++,t>>=1;l--,0==l&&(l=Math.pow(2,h),h++)}for(t=2,e=0;h>e;e++)m=m<<1|1&t,v==r-1?(v=0,d.push(n(m)),m=0):v++,t>>=1;for(;;){if(m<<=1,v==r-1){d.push(n(m));break}v++}return d.join("")},decompress:function(o){return null==o?"":""==o?null:i._decompress(o.length,32768,function(r){return o.charCodeAt(r)})},_decompress:function(o,n,e){var t,i,s,p,u,c,a,l,f=[],h=4,d=4,m=3,v="",w=[],A={val:e(0),position:n,index:1};for(i=0;3>i;i+=1)f[i]=i;for(p=0,c=Math.pow(2,2),a=1;a!=c;)u=A.val&A.position,A.position>>=1,0==A.position&&(A.position=n,A.val=e(A.index++)),p|=(u>0?1:0)*a,a<<=1;switch(t=p){case 0:for(p=0,c=Math.pow(2,8),a=1;a!=c;)u=A.val&A.position,A.position>>=1,0==A.position&&(A.position=n,A.val=e(A.index++)),p|=(u>0?1:0)*a,a<<=1;l=r(p);break;case 1:for(p=0,c=Math.pow(2,16),a=1;a!=c;)u=A.val&A.position,A.position>>=1,0==A.position&&(A.position=n,A.val=e(A.index++)),p|=(u>0?1:0)*a,a<<=1;l=r(p);break;case 2:return""}for(f[3]=l,s=l,w.push(l);;){if(A.index>o)return"";for(p=0,c=Math.pow(2,m),a=1;a!=c;)u=A.val&A.position,A.position>>=1,0==A.position&&(A.position=n,A.val=e(A.index++)),p|=(u>0?1:0)*a,a<<=1;switch(l=p){case 0:for(p=0,c=Math.pow(2,8),a=1;a!=c;)u=A.val&A.position,A.position>>=1,0==A.position&&(A.position=n,A.val=e(A.index++)),p|=(u>0?1:0)*a,a<<=1;f[d++]=r(p),l=d-1,h--;break;case 1:for(p=0,c=Math.pow(2,16),a=1;a!=c;)u=A.val&A.position,A.position>>=1,0==A.position&&(A.position=n,A.val=e(A.index++)),p|=(u>0?1:0)*a,a<<=1;f[d++]=r(p),l=d-1,h--;break;case 2:return w.join("")}if(0==h&&(h=Math.pow(2,m),m++),f[l])v=f[l];else{if(l!==d)return null;v=s+s.charAt(0)}w.push(v),f[d++]=s+v.charAt(0),h--,s=v,0==h&&(h=Math.pow(2,m),m++)}}};return i}();"function"==typeof define&&define.amd?define(function(){return LZString}):"undefined"!=typeof module&&null!=module&&(module.exports=LZString);

@@ -106,13 +106,15 @@ body {
 }
 
 .oekaki-working-canvas {
-	z-index: 1;
+	position: absolute;
+	z-index: 2;
 }
 
 .oekaki-colors {
 	position: relative;
 	margin: 5px;
 	margin-top: 15px;
+	height: 80px;
 }
 
 .oekaki-color {
@@ -217,6 +219,11 @@ body {
 	padding: 5px;
 	font-size: 14px;
 	cursor: pointer;
+	line-height: 16px;
+}
+
+.oekaki-button-command {
+	float: right;
 }
 
 .oekaki-button:hover {
