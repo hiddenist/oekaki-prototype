@@ -570,6 +570,38 @@ function Oekaki(setupOptions) {
 		}
 	}
 
+	function deleteLayer(name, force, _saveState) {
+		if (typeof force == "undefined") {
+			force = false;
+		}
+
+		if (typeof _saveState == "undefined") {
+			_saveState = true;
+		}
+
+		var layer = layers[name];
+
+		if (layer.isBackground && !force) {
+			throw "Can't delete background layer";
+		}
+
+		layer.canvas.remove();
+
+		delete layers[name];
+
+		for (var i = 0; i < elems.layerSelect.children.length; ++ i) {
+			var option = elems.layerSelect.children[i];
+			if (option.value == name) {
+				elems.layerSelect.removeChild(option);
+				break;
+			}
+		}
+
+		if (_saveState) {
+			logAction("deleteLayer", {args: [name, force]});
+		}
+	}
+
 	function addLayer(name, isBg, _saveState) {
 		log("Adding layer: " + name);
 		
@@ -652,6 +684,7 @@ function Oekaki(setupOptions) {
 			case "brush": brush.drawPath(getLayer(state.layer).ctx, state.stroke); break;
 			case "clear": clear(); break;
 			case "addLayer": addLayer(...state.args, false); break;
+			case "deleteLayer": deleteLayer(...state.args, false); break;
 		}
 	}
 
@@ -825,11 +858,8 @@ function Oekaki(setupOptions) {
 	function reset() {
 		// delete all layers
 		for (var key in layers) {
-			var layer = layers[key];
-			layer.canvas.remove();
-			delete layers[key];
+			deleteLayer(key, true, false);
 		}
-		log(layers);
 		clearWorkingCanvas();
 	}
 
