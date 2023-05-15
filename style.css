@@ -2,7 +2,7 @@ body {
 	font-family: sans-serif;
 	margin: 0;
 	padding: 0;
-	background-color: #444;
+	background-color: #e1dfdf;
 }
 
 .oekaki-container {
@@ -25,7 +25,7 @@ body {
 	display: flex;
 	flex-direction: column;
 	padding: 5px;
-	background-color: #222;
+	background-color: #aaa;
 }
 
 @media (max-width: 800px) {
@@ -74,9 +74,9 @@ body {
 	flex-grow: 0;
 	padding: 15px 10px;
 	background-color: rgb(95, 65, 155);
-	border-bottom: 1px solid black;
 	font-size: 20px;
 	text-align: center;
+	color: #fff;
 }
 
 .oekaki-main {
@@ -120,7 +120,7 @@ body {
 .oekaki-color {
 	width: 50px;
 	height: 50px;
-	border: 1px solid black;
+	border: 1px solid #111;
 	position: absolute;
 	top: 0px;
 	left: 0px;
@@ -150,29 +150,47 @@ body {
 }
 
 .oekaki-create-form {
-	display: block;
+	display: grid;
+	grid-template-areas:
+    "name name"
+		"width height"
+		"bgcolor bgcolor"
+		"button button";
+	gap: 16px;
 	margin: auto;
 	width: 400px;
 	max-width: 100%;
 	box-sizing: border-box;
 	padding: 20px;
-	color: white;
-	background-color: #666;
-	box-shadow: 5px 5px 5px rgba(0, 0, 0, 0.2);
+	color: #444;
+	background-color: #f2f2f2;
+	box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.2);
 	border-radius: 5px;
 }
 
+.oekaki-create-input-name { grid-area: name; }
+.oekaki-create-input-width { grid-area: width; }
+.oekaki-create-input-height { grid-area: height; }
+.oekaki-create-input-background { grid-area: bgcolor; }
+.oekaki-create-form button {
+	grid-area: button;
+	margin-top: 16px;
+}
+
 .oekaki-form label {
-	display: block;
-	margin-bottom: 15px;
+	font-size: 14px;
 }
 
 .oekaki-form label input, .oekaki-form label textarea, .oekaki-form label select {
 	display: block;
-	margin-top: 3px;
+	margin-top: 4px;
 	width: 100%;
 	font-size: 15px;
 	box-sizing: border-box;
+	padding: 8px 16px;
+	border-radius: 4px;
+	border: none;
+	box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.1);
 }
 
 .oekaki-load-select {
@@ -180,29 +198,17 @@ body {
 	font-size: 20px;
 }
 
-.oekaki-create-form label.oekaki-create-input-width, .oekaki-create-form label.oekaki-create-input-height {
-	width: 50%;
-	box-sizing: border-box;
-	display: inline-block;
-}
-
-.oekaki-create-form label.oekaki-create-input-width {
-	padding-right: 10px;
-}
-
-.oekaki-create-form label.oekaki-create-input-height {
-	padding-left: 10px;
-}
-
 .oekaki-create-form button {
 	display: block;
 	width: 100%;
-	margin-top: 10px;
-	font-size: 30px;
+	font-size: 24px;
+	font-weight: 300;
 	border-radius: 5px;
-	color: white;
-	background-color: #333;
-	border: 1px solid rgba(0, 0, 0, 0.3);
+	color: #fff;
+	background-color: rgb(142 98 222);
+	padding: 16px;
+	border: none;
+	box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.1);
 }
 
 .oekaki-transbg, .oekaki-color:after {
@@ -211,7 +217,7 @@ body {
 }
 
 .oekaki-page {
-	border: 1px solid #000000;
+	border: 1px solid #777;
 	box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
 	position: relative;
 }
